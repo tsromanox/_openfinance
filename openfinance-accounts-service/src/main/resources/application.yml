@@ -1,0 +1,97 @@
+spring:
+  application:
+    name: openfinance-accounts-service
+
+  webflux:
+    base-path: /api/v1
+
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    lettuce:
+      pool:
+        max-active: 100
+        max-idle: 50
+        min-idle: 20
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      batch-size: 16384
+      linger-ms: 10
+      compression-type: snappy
+      retries: 3
+
+  security:
+    oauth2:
+      client:
+        registration:
+          openfinance:
+            client-id: ${OAUTH2_CLIENT_ID}
+            client-secret: ${OAUTH2_CLIENT_SECRET}
+            authorization-grant-type: client_credentials
+            scope: accounts
+        provider:
+          openfinance:
+            token-uri: ${OAUTH2_TOKEN_URI}
+
+azure:
+  cosmos:
+    enabled: true
+    endpoint: ${COSMOS_ENDPOINT:https://localhost:8081}
+    key: ${COSMOS_KEY:C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIuFJQ==}
+    database: ${COSMOS_DATABASE:openfinance}
+    consistency-level: SESSION
+    connection-mode: DIRECT
+    preferred-regions: Brazil South,East US
+    emulator:
+      enabled: true  # para profile local
+
+openfinance:
+  accounts:
+    update:
+      batch-size: 1000
+      parallelism: 100
+      timeout: 30
+  cache:
+    ttl: 13
+  client:
+    timeout: 30
+    max-connections: 1000
+    max-pending-acquires: 10000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      accounts-api:
+        sliding-window-size: 60
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 5
+        slow-call-duration-threshold: 10s
+        slow-call-rate-threshold: 80
+  retry:
+    instances:
+      accounts-api:
+        max-attempts: 3
+        wait-duration: 500ms
+        retry-exceptions:
+          - java.net.SocketTimeoutException
+          - java.net.ConnectException

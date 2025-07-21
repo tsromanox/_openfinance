@@ -1,0 +1,27 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: accounts-kafka-scaler
+  namespace: openfinance
+spec:
+  scaleTargetRef:
+    name: openfinance-accounts-service
+  minReplicaCount: 10
+  maxReplicaCount: 100
+  pollingInterval: 30
+  cooldownPeriod: 300
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka-cluster-kafka-bootstrap.openfinance.svc.cluster.local:9092
+        consumerGroup: accounts-processor
+        topic: consent-updates
+        lagThreshold: "1000"
+        offsetResetPolicy: latest
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus:9090
+        metricName: openfinance_accounts_processing_queue_size
+        threshold: "10000"
+        query: |
+          sum(openfinance_accounts_processing_queue_size{job="accounts-service"})

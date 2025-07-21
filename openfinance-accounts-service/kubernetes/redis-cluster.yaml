@@ -1,0 +1,26 @@
+apiVersion: redis.redis.opstreelabs.in/v1beta1
+kind: RedisCluster
+metadata:
+  name: redis-cluster
+  namespace: openfinance
+spec:
+  clusterSize: 6
+  kubernetesConfig:
+    image: redis:7-alpine
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+  redisExporter:
+    enabled: true
+    image: oliver006/redis_exporter:latest
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 10Gi
