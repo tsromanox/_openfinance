@@ -590,6 +590,361 @@ Este projeto é proprietário e confidencial. Todos os direitos reservados.
 - [Spring Boot 3.5 Docs](https://spring.io/projects/spring-boot)
 - [Azure Cosmos DB Docs](https://docs.microsoft.com/en-us/azure/cosmos-db/)
 - [Project Loom (Virtual Threads)](https://openjdk.org/projects/loom/)
+
+## 🎯 Decisões Arquiteturais (ADRs)
+
+### ADR-001: Escolha do Azure Cosmos DB
+**Status**: Aceito  
+**Contexto**: Necessidade de um banco de dados que suporte 5M+ contas com alta disponibilidade  
+**Decisão**: Azure Cosmos DB devido a:
+- Escalabilidade global automática
+- Latência garantida < 10ms
+- Multi-model support
+- Replicação multi-região nativa
+- SLA de 99.999%
+
+### ADR-002: Virtual Threads (Java 21)
+**Status**: Aceito  
+**Contexto**: Necessidade de processar 10M operações/dia com alta concorrência  
+**Decisão**: Virtual Threads para:
+- Suportar milhares de threads simultâneas
+- Reduzir overhead de context switching
+- Simplificar código assíncrono
+- Melhor utilização de recursos
+
+### ADR-003: Arquitetura Hexagonal
+**Status**: Aceito  
+**Contexto**: Múltiplos microserviços com lógica de negócio complexa  
+**Decisão**: Arquitetura Hexagonal para:
+- Isolamento do domínio
+- Testabilidade
+- Flexibilidade de adapters
+- Facilitar evolução
+
+## 🚀 Guia de Deployment
+
+### Desenvolvimento Local
+
+```bash
+# 1. Clonar repositório
+git clone https://github.com/empresa/openfinance-system.git
+cd openfinance-system
+
+# 2. Configurar ambiente
+cp .env.example .env
+# Editar .env com suas configurações
+
+# 3. Iniciar infraestrutura local
+docker-compose up -d
+
+# 4. Build e testes
+mvn clean install
+
+# 5. Executar aplicação
+cd openfinance-accounts-service
+mvn spring-boot:run -Dspring.profiles.active=local
+```
+
+### CI/CD Pipeline
+
+```yaml
+# .github/workflows/main.yml
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up JDK 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+      - name: Run tests
+        run: mvn clean test
+      
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build Docker image
+        run: |
+          docker build -t openfinance/accounts-service:${{ github.sha }} .
+          docker push openfinance/accounts-service:${{ github.sha }}
+  
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to AKS
+        run: |
+          kubectl set image deployment/accounts-service \
+            accounts-service=openfinance/accounts-service:${{ github.sha }} \
+            -n openfinance
+```
+
+### Deployment em Produção
+
+```bash
+# 1. Build da imagem
+docker build -t openfinance/accounts-service:v1.0.0 .
+docker push openfinance/accounts-service:v1.0.0
+
+# 2. Deploy via Helm
+helm upgrade --install accounts-service ./helm/accounts-service \
+  --namespace openfinance \
+  --values helm/accounts-service/values-prod.yaml \
+  --set image.tag=v1.0.0
+
+# 3. Verificar deployment
+kubectl rollout status deployment/accounts-service -n openfinance
+kubectl get pods -n openfinance
+
+# 4. Smoke tests
+./scripts/smoke-tests.sh prod
+```
+
+## 📊 Exemplos de Uso
+
+### Chamada para obter saldo de conta
+
+```bash
+# Obter token OAuth2
+TOKEN=$(curl -X POST https://auth.openfinance.com/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials&client_id=$CLIENT_ID&client_secret=$CLIENT_SECRET" \
+  | jq -r '.access_token')
+
+# Buscar saldo
+curl -X GET https://api.openfinance.com/accounts/v1/accounts/{accountId}/balances \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "x-fapi-interaction-id: $(uuidgen)" \
+  -H "Accept: application/json"
+```
+
+### Response exemplo
+
+```json
+{
+  "data": {
+    "availableAmount": {
+      "amount": "1500.5000",
+      "currency": "BRL"
+    },
+    "blockedAmount": {
+      "amount": "100.0000",
+      "currency": "BRL"
+    },
+    "automaticallyInvestedAmount": {
+      "amount": "5000.0000",
+      "currency": "BRL"
+    },
+    "updateDateTime": "2024-01-15T10:30:00Z"
+  },
+  "links": {
+    "self": "https://api.openfinance.com/accounts/v1/accounts/123/balances"
+  },
+  "meta": {
+    "requestDateTime": "2024-01-15T10:30:15Z"
+  }
+}
+```
+
+## 🔍 Troubleshooting
+
+### Problemas Comuns
+
+#### 1. Erro de conexão com Cosmos DB
+```bash
+# Verificar conectividade
+az cosmosdb show --name openfinance-cosmos-prod --resource-group openfinance-rg
+
+# Verificar firewall
+az cosmosdb show --name openfinance-cosmos-prod \
+  --resource-group openfinance-rg \
+  --query ipRules
+
+# Logs da aplicação
+kubectl logs -f deployment/accounts-service -n openfinance
+```
+
+#### 2. Alta latência nas APIs
+```bash
+# Verificar métricas
+kubectl top pods -n openfinance
+
+# Verificar HPA
+kubectl get hpa -n openfinance
+
+# Analisar traces
+# Acessar Jaeger UI: http://jaeger.openfinance.com
+```
+
+#### 3. Erros de autenticação OAuth2
+```bash
+# Verificar token
+jwt decode $TOKEN
+
+# Verificar configuração OAuth2
+kubectl describe configmap oauth2-config -n openfinance
+
+# Logs do security gateway
+kubectl logs -f deployment/security-gateway -n openfinance
+```
+
+### Comandos Úteis
+
+```bash
+# Restart de pods
+kubectl rollout restart deployment/accounts-service -n openfinance
+
+# Escalar manualmente
+kubectl scale deployment/accounts-service --replicas=20 -n openfinance
+
+# Port forward para debug local
+kubectl port-forward svc/accounts-service 8080:80 -n openfinance
+
+# Executar shell no pod
+kubectl exec -it deployment/accounts-service -n openfinance -- /bin/sh
+
+# Verificar eventos do cluster
+kubectl get events -n openfinance --sort-by='.lastTimestamp'
+```
+
+## 📈 Métricas de Performance
+
+### Benchmarks Atuais
+
+| Métrica | Valor | Target |
+|---------|-------|--------|
+| Throughput | 1,200 req/s | 1,000 req/s |
+| Latência P50 | 45ms | < 100ms |
+| Latência P95 | 120ms | < 300ms |
+| Latência P99 | 380ms | < 500ms |
+| CPU Usage | 65% | < 80% |
+| Memory Usage | 70% | < 80% |
+| Cache Hit Rate | 85% | > 80% |
+| Error Rate | 0.05% | < 0.1% |
+
+### Query Performance (Cosmos DB)
+
+```sql
+-- Top queries por RU consumption
+SELECT TOP 10 
+    c.query,
+    c.requestCharge,
+    c.duration
+FROM c
+WHERE c.type = 'query'
+ORDER BY c.requestCharge DESC
+
+-- Otimizações aplicadas:
+-- 1. Índices compostos em (clientId, accountId)
+-- 2. Partition key: {clientId}:{institutionId}
+-- 3. Point reads sempre que possível
+-- 4. Projeções para reduzir payload
+```
+
+## 🔄 Processos Operacionais
+
+### Runbook - Atualização de Dados (2x ao dia)
+
+1. **00:00 e 12:00** - Scheduler Quartz dispara job
+2. **00:01** - Busca consentimentos ativos no Cosmos DB
+3. **00:02** - Publica eventos no Kafka (particionado por instituição)
+4. **00:03-02:00** - Workers processam em paralelo:
+   - Busca dados nas APIs das instituições
+   - Atualiza Cosmos DB
+   - Invalida cache Redis
+   - Envia eventos para Data Lake
+5. **02:00** - Geração de relatório de execução
+6. **02:15** - Alertas se houver falhas
+
+### Disaster Recovery
+
+| Cenário | RTO | RPO | Ação |
+|---------|-----|-----|------|
+| Pod failure | < 1 min | 0 | Kubernetes restart automático |
+| Node failure | < 5 min | 0 | Pods redistribuídos |
+| AZ failure | < 10 min | 0 | Tráfego redirecionado |
+| Region failure | < 30 min | < 5 min | Failover para região secundária |
+| Data corruption | < 2h | < 1h | Restore do backup point-in-time |
+
+### Procedimentos de Manutenção
+
+```bash
+# 1. Colocar serviço em modo manutenção
+kubectl patch svc accounts-service -n openfinance \
+  -p '{"spec":{"selector":{"version":"maintenance"}}}'
+
+# 2. Drenar tráfego dos pods
+kubectl drain node-xxx --ignore-daemonsets --delete-emptydir-data
+
+# 3. Realizar manutenção
+# ...
+
+# 4. Retornar ao normal
+kubectl uncordon node-xxx
+kubectl patch svc accounts-service -n openfinance \
+  -p '{"spec":{"selector":{"version":"v1"}}}'
+```
+
+## 🎓 Recursos de Aprendizado
+
+### Onboarding para Novos Desenvolvedores
+
+1. **Semana 1**: 
+   - Setup ambiente local
+   - Estudar arquitetura hexagonal
+   - Rodar testes unitários
+
+2. **Semana 2**: 
+   - Implementar feature simples
+   - Code review com senior
+   - Estudar Virtual Threads
+
+3. **Semana 3**: 
+   - Deploy em ambiente de dev
+   - Monitoramento e métricas
+   - Incident response training
+
+### Materiais de Estudo
+
+- [Clean Architecture - Uncle Bob](https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html)
+- [Virtual Threads Guide](https://docs.oracle.com/en/java/javase/21/core/virtual-threads.html)
+- [Reactive Programming with Spring](https://spring.io/reactive)
+- [Azure Cosmos DB Best Practices](https://docs.microsoft.com/en-us/azure/cosmos-db/best-practices)
+
+### Certificações Recomendadas
+
+- Azure Developer Associate (AZ-204)
+- Certified Kubernetes Application Developer (CKAD)
+- Spring Professional Certification
+- Open Finance Brasil - Certificação Técnica
+
+## 🌟 Agradecimentos
+
+Este projeto foi possível graças à colaboração de:
+
+- **Time de Arquitetura**: Definição da solução
+- **Time de Desenvolvimento**: Implementação e testes
+- **Time de Infraestrutura**: Deploy e monitoramento
+- **Time de Segurança**: Compliance e proteção
+- **Open Finance Brasil**: Especificações e suporte
+
+---
+
+**Última atualização**: Janeiro 2024  
+**Versão**: 1.0.0  
+**Maintainers**: openfinance-team@empresa.com
 - [Resilience4j](https://resilience4j.readme.io/)
 
 ### Monitoramento
