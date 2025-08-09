@@ -1,0 +1,662 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  # PostgreSQL - Development Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: openfinance-postgres
+    environment:
+      POSTGRES_DB: openfinance
+      POSTGRES_USER: openfinance_user
+      POSTGRES_PASSWORD: openfinance_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - openfinance-network
+
+  # Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: openfinance-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - openfinance-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: openfinance-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    networks:
+      - openfinance-network
+
+  # Redis for caching
+  redis:
+    image: redis:7-alpine
+    container_name: openfinance-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - openfinance-network
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: openfinance-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - "9090:9090"
+    networks:
+      - openfinance-network
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: openfinance-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - openfinance-network
+
+  # Core Module
+  core-module:
+    build:
+      context: ./core-module
+      dockerfile: Dockerfile
+    container_name: openfinance-core
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    networks:
+      - openfinance-network
+
+  # Consents Service
+  consents-service:
+    build:
+      context: ./consents-service
+      dockerfile: Dockerfile
+    container_name: openfinance-consents
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/openfinance
+      SPRING_DATASOURCE_USERNAME: openfinance_user
+      SPRING_DATASOURCE_PASSWORD: openfinance_pass
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_REDIS_HOST: redis
+    depends_on:
+      - postgres
+      - kafka
+      - redis
+    networks:
+      - openfinance-network
+
+  # Accounts Service
+  accounts-service:
+    build:
+      context: ./accounts-service
+      dockerfile: Dockerfile
+    container_name: openfinance-accounts
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/openfinance
+      SPRING_DATASOURCE_USERNAME: openfinance_user
+      SPRING_DATASOURCE_PASSWORD: openfinance_pass
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_REDIS_HOST: redis
+    depends_on:
+      - postgres
+      - kafka
+      - redis
+    networks:
+      - openfinance-network
+
+  # Resources Service
+  resources-service:
+    build:
+      context: ./resources-service
+      dockerfile: Dockerfile
+    container_name: openfinance-resources
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/openfinance
+      SPRING_DATASOURCE_USERNAME: openfinance_user
+      SPRING_DATASOURCE_PASSWORD: openfinance_pass
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_REDIS_HOST: redis
+    depends_on:
+      - postgres
+      - kafka
+      - redis
+    networks:
+      - openfinance-network
+
+networks:
+  openfinance-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+
+---
+# application.yml - Main Configuration
+spring:
+  application:
+    name: ${SERVICE_NAME:openfinance-service}
+  
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+  
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/openfinance}
+    username: ${DB_USERNAME:openfinance_user}
+    password: ${DB_PASSWORD:openfinance_pass}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:20}
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      
+  jpa:
+    hibernate:
+      ddl-auto: ${DDL_AUTO:validate}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
+        default_schema: public
+    show-sql: false
+    
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      retries: 3
+      properties:
+        enable.idempotence: true
+        max.in.flight.requests.per.connection: 5
+    consumer:
+      group-id: ${spring.application.name}
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      properties:
+        session.timeout.ms: 30000
+        
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    timeout: 2000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        
+  cache:
+    type: redis
+    redis:
+      time-to-live: 3600000
+      cache-null-values: false
+      
+# Security Configuration
+security:
+  oauth2:
+    resource:
+      jwk:
+        key-set-uri: ${JWK_SET_URI:https://auth.openfinance.brasil/jwks}
+    client:
+      registration:
+        openfinance:
+          client-id: ${CLIENT_ID}
+          client-secret: ${CLIENT_SECRET}
+          authorization-grant-type: client_credentials
+          scope: consents accounts resources
+          
+# FAPI Security Settings
+fapi:
+  security:
+    enabled: true
+    tls-version: TLSv1.3
+    cipher-suites:
+      - TLS_AES_128_GCM_SHA256
+      - TLS_AES_256_GCM_SHA384
+    mtls:
+      enabled: true
+      truststore: ${TRUSTSTORE_PATH:/certs/truststore.jks}
+      truststore-password: ${TRUSTSTORE_PASSWORD}
+      
+# Monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}
+      environment: ${ENVIRONMENT:development}
+      
+# Logging
+logging:
+  level:
+    root: INFO
+    br.com.openfinance: DEBUG
+    org.springframework.web: INFO
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/${spring.application.name}.log
+    max-size: 10MB
+    max-history: 30
+
+# Open Finance Specific Settings
+openfinance:
+  participant:
+    organization-id: ${ORG_ID}
+    brand-id: ${BRAND_ID}
+  api:
+    version: v3
+    rate-limit:
+      enabled: true
+      max-requests-per-minute: 1000
+  consent:
+    queue:
+      batch-size: 100
+      processing-interval: 5000
+      max-retries: 3
+      retry-delay: 60000
+  accounts:
+    batch:
+      size: 1000
+      parallel-threads: 20
+      schedule:
+        morning: "0 0 6 * * *"
+        evening: "0 0 18 * * *"
+  resources:
+    sync:
+      enabled: true
+      interval: 3600000
+
+---
+# application-docker.yml - Docker Profile
+spring:
+  config:
+    activate:
+      on-profile: docker
+      
+  datasource:
+    url: jdbc:postgresql://postgres:5432/openfinance
+    
+  kafka:
+    bootstrap-servers: kafka:29092
+    
+  redis:
+    host: redis
+
+---
+# application-production.yml - Production Profile  
+spring:
+  config:
+    activate:
+      on-profile: production
+      
+  datasource:
+    url: jdbc:postgresql://c.openfinance-cluster.postgres.database.azure.com:5432/openfinance?sslmode=require
+    hikari:
+      maximum-pool-size: 50
+      
+  jpa:
+    hibernate:
+      ddl-auto: none
+      
+  kafka:
+    bootstrap-servers: ${KAFKA_BROKERS}
+    producer:
+      compression-type: snappy
+      batch-size: 32768
+      linger-ms: 20
+    consumer:
+      max-poll-records: 500
+      fetch-min-size: 1024
+      
+  redis:
+    cluster:
+      nodes: ${REDIS_CLUSTER_NODES}
+    ssl: true
+    
+# Azure Cosmos DB Configuration
+azure:
+  cosmos:
+    postgresql:
+      enabled: true
+      connection-string: ${COSMOS_DB_CONNECTION_STRING}
+      distributed-tables:
+        - consent_queue
+        - accounts
+        - account_transactions
+        - credit_cards
+        - loans
+      shard-count: 32
+      shard-key: customer_id
+      citus:
+        executor: adaptive
+        max-adaptive-executor-pool-size: 16
+        task-executor-type: real-time
+
+---
+# Dockerfile - Multi-stage build for all services
+FROM maven:3.9.5-eclipse-temurin-21-alpine AS build
+WORKDIR /app
+
+# Copy parent pom
+COPY pom.xml .
+
+# Copy module sources
+COPY core-module/pom.xml core-module/
+COPY consents-service/pom.xml consents-service/
+COPY accounts-service/pom.xml accounts-service/
+COPY resources-service/pom.xml resources-service/
+
+# Download dependencies
+RUN mvn dependency:go-offline -B
+
+# Copy source code
+COPY core-module/src core-module/src
+COPY consents-service/src consents-service/src
+COPY accounts-service/src accounts-service/src
+COPY resources-service/src resources-service/src
+
+# Build all modules
+RUN mvn clean package -DskipTests
+
+# Runtime stage
+FROM eclipse-temurin:21-jre-alpine
+RUN apk add --no-cache curl
+
+# Create user
+RUN addgroup -g 1000 spring && adduser -u 1000 -G spring -s /bin/sh -D spring
+
+# Copy JAR file (adjust path based on which service)
+ARG SERVICE_NAME
+COPY --from=build /app/${SERVICE_NAME}/target/*.jar app.jar
+
+# Security - run as non-root
+USER spring:spring
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:8080/actuator/health || exit 1
+
+ENTRYPOINT ["java", "-jar", "/app.jar"]
+
+---
+# prometheus.yml - Prometheus Configuration
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'consents-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['consents-service:8080']
+        labels:
+          service: 'consents'
+          
+  - job_name: 'accounts-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['accounts-service:8081']
+        labels:
+          service: 'accounts'
+          
+  - job_name: 'resources-service'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['resources-service:8082']
+        labels:
+          service: 'resources'
+
+---
+# keda-scaler.yaml - KEDA Configuration for Production
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openfinance-db-config
+  namespace: openfinance
+data:
+  db-connection: |
+    host=c.openfinance-cluster.postgres.database.azure.com
+    port=5432 
+    database=openfinance
+    sslmode=require
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: postgres-trigger-auth
+  namespace: openfinance
+spec:
+  secretTargetRef:
+  - parameter: password
+    name: db-credentials
+    key: password
+
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: consent-queue-scaler
+  namespace: openfinance
+spec:
+  scaleTargetRef:
+    name: consents-service
+  minReplicaCount: 3
+  maxReplicaCount: 100
+  pollingInterval: 30
+  cooldownPeriod: 300
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies:
+          - type: Percent
+            value: 100
+            periodSeconds: 60
+          - type: Pods
+            value: 10
+            periodSeconds: 60
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+          - type: Percent
+            value: 50
+            periodSeconds: 180
+  triggers:
+  - type: postgresql
+    metadata:
+      userName: openfinance_user
+      passwordFromEnv: DB_PASSWORD
+      host: c.openfinance-cluster.postgres.database.azure.com
+      port: "5432"
+      dbName: openfinance
+      sslmode: require
+      query: |
+        SELECT CEIL(COUNT(*)::decimal / 100)
+        FROM consent_queue 
+        WHERE status IN ('PENDING', 'RETRYING')
+        AND (next_retry_at IS NULL OR next_retry_at <= NOW())
+      targetQueryValue: "1"
+    authenticationRef:
+      name: postgres-trigger-auth
+
+---
+# helm-values.yaml - Helm Values for Production Deployment
+global:
+  environment: production
+  namespace: openfinance
+  domain: api.openfinance.com.br
+
+postgresql:
+  enabled: false
+  external:
+    host: c.openfinance-cluster.postgres.database.azure.com
+    port: 5432
+    database: openfinance
+    sslMode: require
+
+kafka:
+  enabled: true
+  replicas: 3
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1000m"
+    limits:
+      memory: "4Gi"
+      cpu: "2000m"
+
+redis:
+  enabled: true
+  cluster:
+    enabled: true
+    slaveCount: 2
+  master:
+    persistence:
+      enabled: true
+      size: 10Gi
+
+services:
+  consents:
+    enabled: true
+    replicas: 5
+    image:
+      repository: openfinance/consents-service
+      tag: latest
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "2000m"
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 50
+      
+  accounts:
+    enabled: true
+    replicas: 10
+    image:
+      repository: openfinance/accounts-service
+      tag: latest
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "1000m"
+      limits:
+        memory: "4Gi"
+        cpu: "4000m"
+    autoscaling:
+      enabled: true
+      minReplicas: 5
+      maxReplicas: 100
+      
+  resources:
+    enabled: true
+    replicas: 5
+    image:
+      repository: openfinance/resources-service
+      tag: latest
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "500m"
+      limits:
+        memory: "2Gi"
+        cpu: "2000m"
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 30
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.3"
+    nginx.ingress.kubernetes.io/rate-limit: "1000"
+  tls:
+    enabled: true
+    secretName: openfinance-tls
+
+monitoring:
+  prometheus:
+    enabled: true
+    retention: 30d
+  grafana:
+    enabled: true
+    adminPassword: ${GRAFANA_PASSWORD}
+  alerts:
+    enabled: true
+    slack:
+      webhook: ${SLACK_WEBHOOK_URL}

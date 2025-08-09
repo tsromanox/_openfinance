@@ -1,0 +1,80 @@
+spring:
+  application:
+    name: openfinance-accounts-service
+
+  threads:
+    virtual:
+      enabled: true  # Enable virtual threads
+
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:local}
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/openfinance}
+    username: ${DB_USERNAME:openfinance_user}
+    password: ${DB_PASSWORD:openfinance_pass}
+    hikari:
+      maximum-pool-size: ${DB_POOL_SIZE:100}  # Increased for virtual threads
+      minimum-idle: 20
+      connection-timeout: 30000
+
+  jpa:
+    hibernate:
+      ddl-auto: ${DDL_AUTO:validate}
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 100
+        order_inserts: true
+        order_updates: true
+    show-sql: false
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: accounts-service
+      auto-offset-reset: earliest
+
+  cache:
+    type: redis
+    redis:
+      time-to-live: 900000  # 15 minutes
+
+server:
+  port: ${SERVER_PORT:8081}
+  tomcat:
+    threads:
+      max: 200  # Will be virtual threads
+      min-spare: 10
+  servlet:
+    context-path: /
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,threaddump
+  endpoint:
+    health:
+      show-details: always
+
+openfinance:
+  accounts:
+    batch:
+      size: ${BATCH_SIZE:1000}
+      virtual-threads:
+        max: ${MAX_VIRTUAL_THREADS:10000}  # Max concurrent virtual threads
+      timeout-minutes: ${BATCH_TIMEOUT:120}
+      schedule:
+        morning: "0 0 6 * * *"
+        evening: "0 0 18 * * *"
+    sync:
+      interval: ${SYNC_INTERVAL:900000}  # 15 minutes
+      timeout: ${SYNC_TIMEOUT:30000}     # 30 seconds
+
+logging:
+  level:
+    root: INFO
+    br.com.openfinance.accounts: DEBUG
+    java.lang.VirtualThread: DEBUG  # Virtual threads logging

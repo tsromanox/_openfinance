@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>br.com.openfinance</groupId>
+    <artifactId>openfinance-platform-receptor</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>Open Finance Platform Receptor</name>
+    <description>Plataforma Receptora de Dados do Open Finance Brasil</description>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.4</version>
+        <relativePath/>
+    </parent>
+
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        
+        <!-- Spring Boot -->
+        <spring-boot.version>3.5.4</spring-boot.version>
+        
+        <!-- OpenAPI -->
+        <openapi-generator.version>7.10.0</openapi-generator.version>
+        <springdoc-openapi.version>2.7.0</springdoc-openapi.version>
+        <jackson-databind-nullable.version>0.2.6</jackson-databind-nullable.version>
+        
+        <!-- Database -->
+        <postgresql.version>42.7.4</postgresql.version>
+        <azure-cosmos-db.version>4.65.0</azure-cosmos-db.version>
+        
+        <!-- Resilience -->
+        <resilience4j.version>2.2.0</resilience4j.version>
+        
+        <!-- Security -->
+        <nimbus-jose-jwt.version>9.40</nimbus-jose-jwt.version>
+        
+        <!-- Observability -->
+        <micrometer.version>1.14.2</micrometer.version>
+        <opentelemetry.version>1.42.1</opentelemetry.version>
+        
+        <!-- Testing -->
+        <testcontainers.version>1.20.4</testcontainers.version>
+    </properties>
+
+    <modules>
+        <module>core-domain</module>
+        <module>application-services</module>
+        <module>adapters/inbound-scheduler</module>
+        <module>adapters/outbound-persistence-postgres</module>
+        <module>adapters/outbound-openfinance-client</module>
+        <module>modules/consents-module</module>
+        <module>modules/accounts-module</module>
+        <module>modules/resources-module</module>
+        <module>bootstrap</module>
+        <module>bootstrap</module>
+    </modules>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Internal Modules -->
+            <dependency>
+                <groupId>br.com.openfinance</groupId>
+                <artifactId>core-domain</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>br.com.openfinance</groupId>
+                <artifactId>application-services</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            
+            <!-- OpenAPI -->
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc-openapi.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.openapitools</groupId>
+                <artifactId>jackson-databind-nullable</artifactId>
+                <version>${jackson-databind-nullable.version}</version>
+            </dependency>
+            
+            <!-- Resilience4j -->
+            <dependency>
+                <groupId>io.github.resilience4j</groupId>
+                <artifactId>resilience4j-spring-boot3</artifactId>
+                <version>${resilience4j.version}</version>
+            </dependency>
+            
+            <!-- Security -->
+            <dependency>
+                <groupId>com.nimbusds</groupId>
+                <artifactId>nimbus-jose-jwt</artifactId>
+                <version>${nimbus-jose-jwt.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+</project>

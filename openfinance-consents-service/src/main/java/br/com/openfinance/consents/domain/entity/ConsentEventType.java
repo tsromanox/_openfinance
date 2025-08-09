@@ -1,0 +1,14 @@
+package br.com.openfinance.consents.domain.entity;
+
+public enum ConsentEventType {
+    CONSENT_CREATED,
+    CONSENT_AUTHORISED,
+    CONSENT_REJECTED,
+    CONSENT_REVOKED,
+    CONSENT_CONSUMED,
+    CONSENT_EXPIRED,
+    CONSENT_UPDATED,
+    PERMISSIONS_UPDATED,
+    ACCOUNTS_LINKED,
+    ACCOUNTS_UNLINKED
+}

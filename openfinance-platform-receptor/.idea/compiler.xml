@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <annotationProcessing>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="inbound-scheduler" />
+        <module name="consents-module" />
+        <module name="resources-module" />
+        <module name="outbound-persistence-postgres" />
+        <module name="core-domain" />
+        <module name="outbound-openfinance-client" />
+        <module name="application-services" />
+        <module name="bootstrap" />
+        <module name="accounts-module" />
+      </profile>
+    </annotationProcessing>
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="bootstrap" options="-parameters" />
+      <module name="core-domain" options="-parameters" />
+      <module name="inbound-scheduler" options="-parameters" />
+      <module name="outbound-openfinance-client" options="-parameters" />
+    </option>
+  </component>
+</project>

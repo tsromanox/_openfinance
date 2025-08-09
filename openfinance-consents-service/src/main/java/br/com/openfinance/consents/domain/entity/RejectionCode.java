@@ -1,0 +1,11 @@
+package br.com.openfinance.consents.domain.entity;
+
+public enum RejectionCode {
+    CUSTOMER_MANUALLY_REJECTED,
+    CONSENT_MAX_DATE_REACHED,
+    CUSTOMER_MANUALLY_REVOKED,
+    ACCOUNT_NOT_LINKED,
+    CONSENT_EXPIRED,
+    CONSENT_REVOKED_BY_CLIENT,
+    CONSENT_REVOKED_BY_ASPSP
+}
