@@ -1,0 +1,1206 @@
+openapi: 3.0.1
+info:
+  contact:
+    email: contato@openfinance.org.br
+    name: Open Finance Brasil
+    url: https://openfinance.org.br
+  description: API de consentimentos para o Open Finance Brasil
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  title: API Consents - Open Finance Brasil
+  version: 3.2.0
+servers:
+- description: Servidor de produção
+  url: https://api.openfinance.org.br/open-banking/consents/v3
+- description: Servidor de sandbox
+  url: https://api.sandbox.openfinance.org.br/open-banking/consents/v3
+paths:
+  /consents:
+    post:
+      description: Cria novo consentimento para compartilhamento de dados
+      operationId: createConsent
+      parameters:
+      - description: Token de autorização
+        explode: false
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          pattern: ^Bearer\s
+          type: string
+        style: simple
+      - description: Data de autenticação
+        explode: false
+        in: header
+        name: x-fapi-auth-date
+        required: true
+        schema:
+          format: date-time
+          type: string
+        style: simple
+      - description: Endereço IP do cliente
+        explode: false
+        in: header
+        name: x-fapi-customer-ip-address
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: Identificador da interação
+        explode: false
+        in: header
+        name: x-fapi-interaction-id
+        required: true
+        schema:
+          pattern: "^[a-zA-Z0-9]{8}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{12}$"
+          type: string
+        style: simple
+      - description: User agent do cliente
+        explode: false
+        in: header
+        name: x-customer-user-agent
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: Assinatura JWS da requisição
+        explode: false
+        in: header
+        name: x-jws-signature
+        required: true
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateConsentRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseConsentCreated"
+          description: Consentimento criado com sucesso
+          headers:
+            x-fapi-interaction-id:
+              $ref: "#/components/headers/xFapiInteractionId"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "406":
+          $ref: "#/components/responses/NotAcceptable"
+        "415":
+          $ref: "#/components/responses/UnsupportedMediaType"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "504":
+          $ref: "#/components/responses/GatewayTimeout"
+      security:
+      - OAuth2Security:
+        - consents
+      summary: Criar novo consentimento
+      tags:
+      - Consents
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /consents/{consentId}:
+    delete:
+      description: Revoga um consentimento específico
+      operationId: deleteConsent
+      parameters:
+      - description: Token de autorização
+        explode: false
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          pattern: ^Bearer\s
+          type: string
+        style: simple
+      - description: Data de autenticação
+        explode: false
+        in: header
+        name: x-fapi-auth-date
+        required: true
+        schema:
+          format: date-time
+          type: string
+        style: simple
+      - description: Endereço IP do cliente
+        explode: false
+        in: header
+        name: x-fapi-customer-ip-address
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: Identificador da interação
+        explode: false
+        in: header
+        name: x-fapi-interaction-id
+        required: true
+        schema:
+          pattern: "^[a-zA-Z0-9]{8}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{12}$"
+          type: string
+        style: simple
+      - description: User agent do cliente
+        explode: false
+        in: header
+        name: x-customer-user-agent
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: Identificador único do consentimento
+        explode: false
+        in: path
+        name: consentId
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "204":
+          description: Consentimento revogado com sucesso
+          headers:
+            x-fapi-interaction-id:
+              $ref: "#/components/headers/xFapiInteractionId"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "406":
+          $ref: "#/components/responses/NotAcceptable"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "504":
+          $ref: "#/components/responses/GatewayTimeout"
+      security:
+      - OAuth2Security:
+        - consents
+      summary: Revogar consentimento
+      tags:
+      - Consents
+      x-accepts:
+      - application/json
+    get:
+      description: Obtém detalhes de um consentimento específico
+      operationId: getConsent
+      parameters:
+      - description: Token de autorização
+        explode: false
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          pattern: ^Bearer\s
+          type: string
+        style: simple
+      - description: Data de autenticação
+        explode: false
+        in: header
+        name: x-fapi-auth-date
+        required: true
+        schema:
+          format: date-time
+          type: string
+        style: simple
+      - description: Endereço IP do cliente
+        explode: false
+        in: header
+        name: x-fapi-customer-ip-address
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: Identificador da interação
+        explode: false
+        in: header
+        name: x-fapi-interaction-id
+        required: true
+        schema:
+          pattern: "^[a-zA-Z0-9]{8}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{12}$"
+          type: string
+        style: simple
+      - description: User agent do cliente
+        explode: false
+        in: header
+        name: x-customer-user-agent
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: Identificador único do consentimento
+        explode: false
+        in: path
+        name: consentId
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseConsent"
+          description: Consentimento obtido com sucesso
+          headers:
+            x-fapi-interaction-id:
+              $ref: "#/components/headers/xFapiInteractionId"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "406":
+          $ref: "#/components/responses/NotAcceptable"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "504":
+          $ref: "#/components/responses/GatewayTimeout"
+      security:
+      - OAuth2Security:
+        - consents
+      summary: Obter detalhes do consentimento
+      tags:
+      - Consents
+      x-accepts:
+      - application/json
+  /consents/{consentId}/extends:
+    post:
+      description: Renova um consentimento existente
+      operationId: extendConsent
+      parameters:
+      - description: Token de autorização
+        explode: false
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          pattern: ^Bearer\s
+          type: string
+        style: simple
+      - description: Data de autenticação
+        explode: false
+        in: header
+        name: x-fapi-auth-date
+        required: true
+        schema:
+          format: date-time
+          type: string
+        style: simple
+      - description: Endereço IP do cliente
+        explode: false
+        in: header
+        name: x-fapi-customer-ip-address
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: Identificador da interação
+        explode: false
+        in: header
+        name: x-fapi-interaction-id
+        required: true
+        schema:
+          pattern: "^[a-zA-Z0-9]{8}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{12}$"
+          type: string
+        style: simple
+      - description: User agent do cliente
+        explode: false
+        in: header
+        name: x-customer-user-agent
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: Identificador único do consentimento
+        explode: false
+        in: path
+        name: consentId
+        required: true
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExtendConsentRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseConsentExtended"
+          description: Consentimento renovado com sucesso
+          headers:
+            x-fapi-interaction-id:
+              $ref: "#/components/headers/xFapiInteractionId"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "406":
+          $ref: "#/components/responses/NotAcceptable"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "504":
+          $ref: "#/components/responses/GatewayTimeout"
+      security:
+      - OAuth2Security:
+        - consents
+      summary: Renovar consentimento
+      tags:
+      - Consents
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /consents/{consentId}/extensions:
+    get:
+      description: Obtém histórico de extensões de um consentimento
+      operationId: getConsentExtensions
+      parameters:
+      - description: Token de autorização
+        explode: false
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          pattern: ^Bearer\s
+          type: string
+        style: simple
+      - description: Data de autenticação
+        explode: false
+        in: header
+        name: x-fapi-auth-date
+        required: true
+        schema:
+          format: date-time
+          type: string
+        style: simple
+      - description: Endereço IP do cliente
+        explode: false
+        in: header
+        name: x-fapi-customer-ip-address
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: Identificador da interação
+        explode: false
+        in: header
+        name: x-fapi-interaction-id
+        required: true
+        schema:
+          pattern: "^[a-zA-Z0-9]{8}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{12}$"
+          type: string
+        style: simple
+      - description: User agent do cliente
+        explode: false
+        in: header
+        name: x-customer-user-agent
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: Identificador único do consentimento
+        explode: false
+        in: path
+        name: consentId
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseConsentExtensions"
+          description: Histórico de extensões obtido com sucesso
+          headers:
+            x-fapi-interaction-id:
+              $ref: "#/components/headers/xFapiInteractionId"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "405":
+          $ref: "#/components/responses/MethodNotAllowed"
+        "406":
+          $ref: "#/components/responses/NotAcceptable"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "504":
+          $ref: "#/components/responses/GatewayTimeout"
+      security:
+      - OAuth2Security:
+        - consents
+      summary: Obter histórico de extensões
+      tags:
+      - Consents
+      x-accepts:
+      - application/json
+components:
+  headers:
+    xFapiInteractionId:
+      description: Identificador da interação
+      explode: false
+      schema:
+        pattern: "^[a-zA-Z0-9]{8}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{12}$"
+        type: string
+      style: simple
+  parameters:
+    Authorization:
+      description: Token de autorização
+      explode: false
+      in: header
+      name: Authorization
+      required: true
+      schema:
+        pattern: ^Bearer\s
+        type: string
+      style: simple
+    xFapiAuthDate:
+      description: Data de autenticação
+      explode: false
+      in: header
+      name: x-fapi-auth-date
+      required: true
+      schema:
+        format: date-time
+        type: string
+      style: simple
+    xFapiCustomerIpAddress:
+      description: Endereço IP do cliente
+      explode: false
+      in: header
+      name: x-fapi-customer-ip-address
+      required: true
+      schema:
+        type: string
+      style: simple
+    xFapiInteractionId:
+      description: Identificador da interação
+      explode: false
+      in: header
+      name: x-fapi-interaction-id
+      required: true
+      schema:
+        pattern: "^[a-zA-Z0-9]{8}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{4}-[a-zA-Z0-9]{12}$"
+        type: string
+      style: simple
+    xCustomerUserAgent:
+      description: User agent do cliente
+      explode: false
+      in: header
+      name: x-customer-user-agent
+      required: true
+      schema:
+        type: string
+      style: simple
+    xJwsSignature:
+      description: Assinatura JWS da requisição
+      explode: false
+      in: header
+      name: x-jws-signature
+      required: true
+      schema:
+        type: string
+      style: simple
+    consentId:
+      description: Identificador único do consentimento
+      explode: false
+      in: path
+      name: consentId
+      required: true
+      schema:
+        type: string
+      style: simple
+  responses:
+    BadRequest:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+      description: Requisição inválida
+    Unauthorized:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+      description: Token de autorização inválido
+    Forbidden:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+      description: Acesso negado
+    NotFound:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+      description: Recurso não encontrado
+    MethodNotAllowed:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+      description: Método não permitido
+    NotAcceptable:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+      description: Não aceito
+    UnsupportedMediaType:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+      description: Tipo de mídia não suportado
+    UnprocessableEntity:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+      description: Entidade não processável
+    TooManyRequests:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+      description: Muitas requisições
+    InternalServerError:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+      description: Erro interno do servidor
+    GatewayTimeout:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+      description: Timeout do gateway
+  schemas:
+    CreateConsentRequest:
+      example:
+        data:
+          expirationDateTime: 2000-01-23T04:56:07.000+00:00
+          transactionFromDateTime: 2000-01-23T04:56:07.000+00:00
+          transactionToDateTime: 2000-01-23T04:56:07.000+00:00
+          permissions:
+          - ACCOUNTS_READ
+          - ACCOUNTS_READ
+          loggedUser:
+            document:
+              identification: identification
+              rel: CPF
+          businessEntity:
+            document:
+              identification: identification
+              rel: CPF
+      properties:
+        data:
+          $ref: "#/components/schemas/ConsentData"
+      required:
+      - data
+      type: object
+    ConsentData:
+      example:
+        expirationDateTime: 2000-01-23T04:56:07.000+00:00
+        transactionFromDateTime: 2000-01-23T04:56:07.000+00:00
+        transactionToDateTime: 2000-01-23T04:56:07.000+00:00
+        permissions:
+        - ACCOUNTS_READ
+        - ACCOUNTS_READ
+        loggedUser:
+          document:
+            identification: identification
+            rel: CPF
+        businessEntity:
+          document:
+            identification: identification
+            rel: CPF
+      properties:
+        loggedUser:
+          $ref: "#/components/schemas/LoggedUser"
+        businessEntity:
+          $ref: "#/components/schemas/BusinessEntity"
+        permissions:
+          items:
+            $ref: "#/components/schemas/EnumConsentPermissions"
+          minItems: 1
+          type: array
+        expirationDateTime:
+          description: Data e hora de expiração do consentimento
+          format: date-time
+          type: string
+        transactionFromDateTime:
+          description: Data e hora de início para consulta de transações
+          format: date-time
+          type: string
+        transactionToDateTime:
+          description: Data e hora de fim para consulta de transações
+          format: date-time
+          type: string
+      required:
+      - businessEntity
+      - expirationDateTime
+      - loggedUser
+      - permissions
+      type: object
+    LoggedUser:
+      example:
+        document:
+          identification: identification
+          rel: CPF
+      properties:
+        document:
+          $ref: "#/components/schemas/Document"
+      required:
+      - document
+      type: object
+    BusinessEntity:
+      example:
+        document:
+          identification: identification
+          rel: CPF
+      properties:
+        document:
+          $ref: "#/components/schemas/Document"
+      type: object
+    Document:
+      example:
+        identification: identification
+        rel: CPF
+      properties:
+        identification:
+          description: CPF ou CNPJ do usuário
+          pattern: "^\\d{11}$|^\\d{14}$"
+          type: string
+        rel:
+          description: Tipo de documento
+          enum:
+          - CPF
+          - CNPJ
+          type: string
+      required:
+      - identification
+      - rel
+      type: object
+    EnumConsentPermissions:
+      enum:
+      - ACCOUNTS_READ
+      - ACCOUNTS_BALANCES_READ
+      - ACCOUNTS_TRANSACTIONS_READ
+      - ACCOUNTS_OVERDRAFT_LIMITS_READ
+      - CREDIT_CARDS_ACCOUNTS_READ
+      - CREDIT_CARDS_ACCOUNTS_BILLS_READ
+      - CREDIT_CARDS_ACCOUNTS_BILLS_TRANSACTIONS_READ
+      - CREDIT_CARDS_ACCOUNTS_LIMITS_READ
+      - CREDIT_CARDS_ACCOUNTS_TRANSACTIONS_READ
+      - CUSTOMERS_PERSONAL_IDENTIFICATIONS_READ
+      - CUSTOMERS_PERSONAL_ADITTIONALINFO_READ
+      - CUSTOMERS_BUSINESS_IDENTIFICATIONS_READ
+      - CUSTOMERS_BUSINESS_ADITTIONALINFO_READ
+      - FINANCINGS_READ
+      - FINANCINGS_SCHEDULED_INSTALMENTS_READ
+      - FINANCINGS_PAYMENTS_READ
+      - FINANCINGS_WARRANTIES_READ
+      - INVOICE_FINANCINGS_READ
+      - INVOICE_FINANCINGS_SCHEDULED_INSTALMENTS_READ
+      - INVOICE_FINANCINGS_PAYMENTS_READ
+      - INVOICE_FINANCINGS_WARRANTIES_READ
+      - LOANS_READ
+      - LOANS_SCHEDULED_INSTALMENTS_READ
+      - LOANS_PAYMENTS_READ
+      - LOANS_WARRANTIES_READ
+      - UNARRANGED_ACCOUNTS_OVERDRAFT_READ
+      - UNARRANGED_ACCOUNTS_OVERDRAFT_SCHEDULED_INSTALMENTS_READ
+      - UNARRANGED_ACCOUNTS_OVERDRAFT_PAYMENTS_READ
+      - UNARRANGED_ACCOUNTS_OVERDRAFT_WARRANTIES_READ
+      - BANK_FIXED_INCOMES_READ
+      - CREDIT_FIXED_INCOMES_READ
+      - FUNDS_READ
+      - VARIABLE_INCOMES_READ
+      - TREASURE_TITLES_READ
+      - EXCHANGES_READ
+      type: string
+    ResponseConsentCreated:
+      example:
+        data:
+          consentId: consentId
+          expirationDateTime: 2000-01-23T04:56:07.000+00:00
+          permissions:
+          - ACCOUNTS_READ
+          - ACCOUNTS_READ
+          statusUpdateDateTime: 2000-01-23T04:56:07.000+00:00
+          status: AWAITING_AUTHORISATION
+          creationDateTime: 2000-01-23T04:56:07.000+00:00
+        meta:
+          totalRecords: 0
+          requestDateTime: 2000-01-23T04:56:07.000+00:00
+          totalPages: 6
+        links:
+          next: next
+          last: last
+          prev: prev
+          self: self
+          first: first
+      properties:
+        data:
+          $ref: "#/components/schemas/ConsentCreatedData"
+        links:
+          $ref: "#/components/schemas/Links"
+        meta:
+          $ref: "#/components/schemas/Meta"
+      required:
+      - data
+      - links
+      - meta
+      type: object
+    ConsentCreatedData:
+      example:
+        consentId: consentId
+        expirationDateTime: 2000-01-23T04:56:07.000+00:00
+        permissions:
+        - ACCOUNTS_READ
+        - ACCOUNTS_READ
+        statusUpdateDateTime: 2000-01-23T04:56:07.000+00:00
+        status: AWAITING_AUTHORISATION
+        creationDateTime: 2000-01-23T04:56:07.000+00:00
+      properties:
+        consentId:
+          description: Identificador único do consentimento
+          maxLength: 256
+          type: string
+        status:
+          $ref: "#/components/schemas/EnumConsentStatus"
+        statusUpdateDateTime:
+          description: Data e hora da última atualização do status
+          format: date-time
+          type: string
+        creationDateTime:
+          description: Data e hora de criação do consentimento
+          format: date-time
+          type: string
+        expirationDateTime:
+          description: Data e hora de expiração do consentimento
+          format: date-time
+          type: string
+        permissions:
+          items:
+            $ref: "#/components/schemas/EnumConsentPermissions"
+          minItems: 1
+          type: array
+      required:
+      - consentId
+      - creationDateTime
+      - expirationDateTime
+      - permissions
+      - status
+      - statusUpdateDateTime
+      type: object
+    ResponseConsent:
+      example:
+        data:
+          consentId: consentId
+          expirationDateTime: 2000-01-23T04:56:07.000+00:00
+          transactionFromDateTime: 2000-01-23T04:56:07.000+00:00
+          transactionToDateTime: 2000-01-23T04:56:07.000+00:00
+          permissions:
+          - ACCOUNTS_READ
+          - ACCOUNTS_READ
+          statusUpdateDateTime: 2000-01-23T04:56:07.000+00:00
+          loggedUser:
+            document:
+              identification: identification
+              rel: CPF
+          businessEntity:
+            document:
+              identification: identification
+              rel: CPF
+          status: AWAITING_AUTHORISATION
+          creationDateTime: 2000-01-23T04:56:07.000+00:00
+        meta:
+          totalRecords: 0
+          requestDateTime: 2000-01-23T04:56:07.000+00:00
+          totalPages: 6
+        links:
+          next: next
+          last: last
+          prev: prev
+          self: self
+          first: first
+      properties:
+        data:
+          $ref: "#/components/schemas/ConsentFullData"
+        links:
+          $ref: "#/components/schemas/Links"
+        meta:
+          $ref: "#/components/schemas/Meta"
+      required:
+      - data
+      - links
+      - meta
+      type: object
+    ConsentFullData:
+      example:
+        consentId: consentId
+        expirationDateTime: 2000-01-23T04:56:07.000+00:00
+        transactionFromDateTime: 2000-01-23T04:56:07.000+00:00
+        transactionToDateTime: 2000-01-23T04:56:07.000+00:00
+        permissions:
+        - ACCOUNTS_READ
+        - ACCOUNTS_READ
+        statusUpdateDateTime: 2000-01-23T04:56:07.000+00:00
+        loggedUser:
+          document:
+            identification: identification
+            rel: CPF
+        businessEntity:
+          document:
+            identification: identification
+            rel: CPF
+        status: AWAITING_AUTHORISATION
+        creationDateTime: 2000-01-23T04:56:07.000+00:00
+      properties:
+        consentId:
+          description: Identificador único do consentimento
+          maxLength: 256
+          type: string
+        status:
+          $ref: "#/components/schemas/EnumConsentStatus"
+        statusUpdateDateTime:
+          description: Data e hora da última atualização do status
+          format: date-time
+          type: string
+        creationDateTime:
+          description: Data e hora de criação do consentimento
+          format: date-time
+          type: string
+        expirationDateTime:
+          description: Data e hora de expiração do consentimento
+          format: date-time
+          type: string
+        permissions:
+          items:
+            $ref: "#/components/schemas/EnumConsentPermissions"
+          minItems: 1
+          type: array
+        loggedUser:
+          $ref: "#/components/schemas/LoggedUser"
+        businessEntity:
+          $ref: "#/components/schemas/BusinessEntity"
+        transactionFromDateTime:
+          description: Data e hora de início para consulta de transações
+          format: date-time
+          type: string
+        transactionToDateTime:
+          description: Data e hora de fim para consulta de transações
+          format: date-time
+          type: string
+      required:
+      - consentId
+      - creationDateTime
+      - expirationDateTime
+      - permissions
+      - status
+      - statusUpdateDateTime
+      type: object
+    ExtendConsentRequest:
+      example:
+        data:
+          expirationDateTime: 2000-01-23T04:56:07.000+00:00
+      properties:
+        data:
+          $ref: "#/components/schemas/ConsentExtendData"
+      required:
+      - data
+      type: object
+    ConsentExtendData:
+      example:
+        expirationDateTime: 2000-01-23T04:56:07.000+00:00
+      properties:
+        expirationDateTime:
+          description: Nova data e hora de expiração do consentimento
+          format: date-time
+          type: string
+      required:
+      - expirationDateTime
+      type: object
+    ResponseConsentExtended:
+      example:
+        data:
+          consentId: consentId
+          expirationDateTime: 2000-01-23T04:56:07.000+00:00
+          statusUpdateDateTime: 2000-01-23T04:56:07.000+00:00
+        meta:
+          totalRecords: 0
+          requestDateTime: 2000-01-23T04:56:07.000+00:00
+          totalPages: 6
+        links:
+          next: next
+          last: last
+          prev: prev
+          self: self
+          first: first
+      properties:
+        data:
+          $ref: "#/components/schemas/ConsentExtendedData"
+        links:
+          $ref: "#/components/schemas/Links"
+        meta:
+          $ref: "#/components/schemas/Meta"
+      required:
+      - data
+      - links
+      - meta
+      type: object
+    ConsentExtendedData:
+      example:
+        consentId: consentId
+        expirationDateTime: 2000-01-23T04:56:07.000+00:00
+        statusUpdateDateTime: 2000-01-23T04:56:07.000+00:00
+      properties:
+        consentId:
+          description: Identificador único do consentimento
+          maxLength: 256
+          type: string
+        expirationDateTime:
+          description: Nova data e hora de expiração do consentimento
+          format: date-time
+          type: string
+        statusUpdateDateTime:
+          description: Data e hora da última atualização do status
+          format: date-time
+          type: string
+      required:
+      - consentId
+      - expirationDateTime
+      - statusUpdateDateTime
+      type: object
+    ResponseConsentExtensions:
+      example:
+        data:
+        - expirationDateTime: 2000-01-23T04:56:07.000+00:00
+          requestDateTime: 2000-01-23T04:56:07.000+00:00
+          previousExpirationDateTime: 2000-01-23T04:56:07.000+00:00
+        - expirationDateTime: 2000-01-23T04:56:07.000+00:00
+          requestDateTime: 2000-01-23T04:56:07.000+00:00
+          previousExpirationDateTime: 2000-01-23T04:56:07.000+00:00
+        meta:
+          totalRecords: 0
+          requestDateTime: 2000-01-23T04:56:07.000+00:00
+          totalPages: 6
+        links:
+          next: next
+          last: last
+          prev: prev
+          self: self
+          first: first
+      properties:
+        data:
+          items:
+            $ref: "#/components/schemas/ConsentExtensionData"
+          type: array
+        links:
+          $ref: "#/components/schemas/Links"
+        meta:
+          $ref: "#/components/schemas/Meta"
+      required:
+      - data
+      - links
+      - meta
+      type: object
+    ConsentExtensionData:
+      example:
+        expirationDateTime: 2000-01-23T04:56:07.000+00:00
+        requestDateTime: 2000-01-23T04:56:07.000+00:00
+        previousExpirationDateTime: 2000-01-23T04:56:07.000+00:00
+      properties:
+        requestDateTime:
+          description: Data e hora da solicitação de extensão
+          format: date-time
+          type: string
+        expirationDateTime:
+          description: Nova data e hora de expiração
+          format: date-time
+          type: string
+        previousExpirationDateTime:
+          description: Data e hora de expiração anterior
+          format: date-time
+          type: string
+      required:
+      - expirationDateTime
+      - previousExpirationDateTime
+      - requestDateTime
+      type: object
+    EnumConsentStatus:
+      enum:
+      - AWAITING_AUTHORISATION
+      - AUTHORISED
+      - REJECTED
+      - REVOKED
+      - EXPIRED
+      - CONSUMED
+      type: string
+    Links:
+      example:
+        next: next
+        last: last
+        prev: prev
+        self: self
+        first: first
+      properties:
+        self:
+          description: Link para a própria página
+          type: string
+        first:
+          description: Link para a primeira página
+          type: string
+        prev:
+          description: Link para a página anterior
+          type: string
+        next:
+          description: Link para a próxima página
+          type: string
+        last:
+          description: Link para a última página
+          type: string
+      type: object
+    Meta:
+      example:
+        totalRecords: 0
+        requestDateTime: 2000-01-23T04:56:07.000+00:00
+        totalPages: 6
+      properties:
+        totalRecords:
+          description: Número total de registros
+          type: integer
+        totalPages:
+          description: Número total de páginas
+          type: integer
+        requestDateTime:
+          description: Data e hora da requisição
+          format: date-time
+          type: string
+      required:
+      - totalPages
+      - totalRecords
+      type: object
+    Error:
+      example:
+        meta:
+          totalRecords: 0
+          requestDateTime: 2000-01-23T04:56:07.000+00:00
+          totalPages: 6
+        errors:
+        - code: code
+          meta: "{}"
+          detail: detail
+          title: title
+        - code: code
+          meta: "{}"
+          detail: detail
+          title: title
+      properties:
+        errors:
+          items:
+            $ref: "#/components/schemas/Error_errors_inner"
+          minItems: 1
+          type: array
+        meta:
+          $ref: "#/components/schemas/Meta"
+      required:
+      - errors
+      type: object
+    Error_errors_inner:
+      example:
+        code: code
+        meta: "{}"
+        detail: detail
+        title: title
+      properties:
+        code:
+          description: Código do erro
+          type: string
+        title:
+          description: Título do erro
+          type: string
+        detail:
+          description: Detalhes do erro
+          type: string
+        meta:
+          description: Metadados do erro
+          type: object
+      required:
+      - code
+      - detail
+      - title
+      type: object
+  securitySchemes:
+    OAuth2Security:
+      flows:
+        authorizationCode:
+          authorizationUrl: https://auth.openfinance.org.br/oauth/authorize
+          scopes:
+            consents: Gerenciamento de consentimentos
+          tokenUrl: https://auth.openfinance.org.br/oauth/token
+        clientCredentials:
+          scopes:
+            consents: Gerenciamento de consentimentos
+          tokenUrl: https://auth.openfinance.org.br/oauth/token
+      type: oauth2
+

@@ -1,0 +1,524 @@
+# Advanced Resource Service Configuration - Optimized for Virtual Threads and high-performance processing
+
+# OpenFinance Resource Service Configuration
+openfinance:
+  resources:
+    # Core resource processing settings
+    enabled: true
+    startup-delay: 5000  # 5 seconds
+    
+    # Virtual Threads configuration
+    virtual-threads:
+      enabled: true
+      max-pool-size: 4000
+      connection-timeout: 20s
+      discovery-timeout: 45s
+      sync-timeout: 60s
+      validation-timeout: 15s
+      monitoring-timeout: 10s
+    
+    # Batch processing settings
+    batch:
+      size: 400
+      max-concurrent: 200
+      parallel-factor: 30
+      fetch-size: 200
+      timeout:
+        task: 60s
+        batch: 900s       # 15 minutes
+    
+    # Retry configuration
+    retry:
+      max-attempts: 4
+      backoff-delay: 3s
+      max-backoff-delay: 90s
+    
+    # API call configuration
+    timeout:
+      api-call: 60s
+      discovery: 120s
+      sync: 180s
+      validation: 30s
+      monitoring: 20s
+    
+    # Adaptive resource management
+    adaptive:
+      enabled: true
+      batch-size:
+        min: 100
+        max: 1500
+      concurrency:
+        min: 50
+        max: 1000
+      discovery:
+        concurrency:
+          min: 20
+          max: 400
+      sync:
+        concurrency:
+          min: 30
+          max: 500
+      validation:
+        concurrency:
+          min: 15
+          max: 300
+      monitoring:
+        concurrency:
+          min: 20
+          max: 350
+      api:
+        concurrency:
+          min: 100
+          max: 2000
+      memory-threshold: 0.85    # 85% memory usage threshold
+      cpu-threshold: 0.80       # 80% CPU usage threshold
+      interval:
+        min: 20000   # 20 seconds
+        max: 300000  # 5 minutes
+    
+    # Resource discovery configuration
+    discovery:
+      timeout:
+        seconds: 90
+      parallel:
+        enabled: true
+      automatic:
+        enabled: true
+        interval: 7200s  # 2 hours
+      endpoints:
+        - "https://data.directory.openbankingbrasil.org.br/participants"
+        - "https://opendata.providers.org.br/discovery"
+    
+    # Resource synchronization configuration
+    sync:
+      timeout:
+        seconds: 120
+      parallel:
+        enabled: true
+      automatic:
+        enabled: true
+        interval: 3600s  # 1 hour
+      max-retries: 3
+    
+    # Resource validation configuration
+    validation:
+      timeout:
+        seconds: 45
+      parallel:
+        enabled: true
+      automatic:
+        enabled: true
+        interval: 1800s  # 30 minutes
+      checks:
+        - "endpoint_availability"
+        - "api_version_compatibility"
+        - "certificate_validity"
+        - "response_format"
+    
+    # Resource monitoring configuration
+    monitoring:
+      timeout:
+        seconds: 30
+      parallel:
+        enabled: true
+      automatic:
+        enabled: true
+        interval: 300s   # 5 minutes
+      health-checks:
+        enabled: true
+        detailed: true
+    
+    # Performance monitoring
+    monitoring:
+      enabled: true
+      metrics-interval: 30s
+      performance-log-interval: 300s  # 5 minutes
+      slow-processing-threshold: 3000ms
+      detailed-metrics: true
+    
+    # Circuit breaker configuration
+    circuit-breaker:
+      failure-rate-threshold: 35
+      minimum-number-of-calls: 20
+      sliding-window-size: 40
+      wait-duration-in-open-state: 120s
+
+# Spring configuration
+spring:
+  # Task execution configuration
+  task:
+    execution:
+      pool:
+        core-size: 40
+        max-size: 1000
+        queue-capacity: 3000
+        keep-alive: 120s
+      thread-name-prefix: "resource-"
+    scheduling:
+      pool:
+        size: 40
+        thread-name-prefix: "resource-task-"
+  
+  # Async configuration
+  async:
+    core-pool-size: 40
+    max-pool-size: 1000
+    queue-capacity: 3000
+    thread-name-prefix: "async-resource-"
+
+  # WebFlux configuration for reactive processing
+  webflux:
+    multipart:
+      max-in-memory-size: 30MB
+      max-disk-usage-per-part: 300MB
+    
+  # Jackson configuration for JSON processing
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+      write-date-timestamps-as-nanoseconds: false
+    deserialization:
+      read-date-timestamps-as-nanoseconds: false
+
+# Resilience4j Configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      resource-discovery:
+        failure-rate-threshold: 35
+        minimum-number-of-calls: 20
+        sliding-window-size: 40
+        wait-duration-in-open-state: 120s
+        permitted-number-of-calls-in-half-open-state: 10
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - java.lang.Exception
+      resource-sync:
+        failure-rate-threshold: 40
+        minimum-number-of-calls: 15
+        sliding-window-size: 30
+        wait-duration-in-open-state: 90s
+      resource-validation:
+        failure-rate-threshold: 30
+        minimum-number-of-calls: 10
+        sliding-window-size: 20
+        wait-duration-in-open-state: 60s
+      resource-monitoring:
+        failure-rate-threshold: 45
+        minimum-number-of-calls: 12
+        sliding-window-size: 25
+        wait-duration-in-open-state: 75s
+      resource-api-calls:
+        failure-rate-threshold: 60
+        minimum-number-of-calls: 25
+        sliding-window-size: 50
+        wait-duration-in-open-state: 150s
+  
+  retry:
+    instances:
+      resource-discovery:
+        max-attempts: 4
+        wait-duration: 3s
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - java.lang.RuntimeException
+          - java.util.concurrent.TimeoutException
+          - java.net.SocketTimeoutException
+        ignore-exceptions:
+          - java.lang.IllegalArgumentException
+      resource-sync:
+        max-attempts: 3
+        wait-duration: 2s
+        exponential-backoff-multiplier: 1.5
+        retry-exceptions:
+          - java.util.concurrent.TimeoutException
+          - java.net.SocketTimeoutException
+      resource-validation:
+        max-attempts: 3
+        wait-duration: 1s
+        retry-exceptions:
+          - java.util.concurrent.TimeoutException
+      resource-monitoring:
+        max-attempts: 2
+        wait-duration: 1s
+        retry-exceptions:
+          - java.util.concurrent.TimeoutException
+      resource-api-calls:
+        max-attempts: 5
+        wait-duration: 5s
+        exponential-backoff-multiplier: 1.8
+  
+  ratelimiter:
+    instances:
+      resource-discovery:
+        limit-for-period: 400
+        limit-refresh-period: 1s
+        timeout-duration: 20s
+      resource-sync:
+        limit-for-period: 300
+        limit-refresh-period: 1s
+        timeout-duration: 15s
+      resource-validation:
+        limit-for-period: 600
+        limit-refresh-period: 1s
+        timeout-duration: 10s
+      resource-monitoring:
+        limit-for-period: 800
+        limit-refresh-period: 1s
+        timeout-duration: 12s
+      resource-api-calls:
+        limit-for-period: 2000
+        limit-refresh-period: 1s
+        timeout-duration: 25s
+
+# Actuator configuration for monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,metrics,prometheus,info,env,threaddump"
+  metrics:
+    tags:
+      application: openfinance-receptor
+      component: service-resources
+    export:
+      prometheus:
+        enabled: true
+    enable:
+      jvm: true
+      system: true
+      process: true
+    web:
+      server:
+        auto-time-requests: true
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+    threaddump:
+      enabled: true
+  health:
+    circuitbreakers:
+      enabled: true
+  info:
+    env:
+      enabled: true
+    java:
+      enabled: true
+
+# Logging configuration
+logging:
+  level:
+    br.com.openfinance.service.resources: INFO
+    org.springframework.web.reactive: DEBUG
+    io.github.resilience4j: DEBUG
+    # Virtual Thread debugging (enable only for development)
+    java.util.concurrent: WARN
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level [%X{correlation-id}] [%X{resource-id}] [%X{organization-id}] [%X{endpoint-id}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{correlation-id}] [%X{resource-id}] [%X{organization-id}] [%X{endpoint-id}] %logger{36} - %msg%n"
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: "development"
+
+openfinance:
+  resources:
+    batch:
+      size: 150
+      max-concurrent: 40
+    adaptive:
+      memory-threshold: 0.70
+      cpu-threshold: 0.60
+    monitoring:
+      performance-log-interval: 60s  # More frequent logging in dev
+    discovery:
+      timeout:
+        seconds: 45
+    sync:
+      timeout:
+        seconds: 60
+    validation:
+      timeout:
+        seconds: 20
+    monitoring:
+      timeout:
+        seconds: 15
+
+logging:
+  level:
+    br.com.openfinance.service.resources: DEBUG
+    org.springframework.web.reactive: DEBUG
+    java.util.concurrent: INFO
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: "production"
+
+openfinance:
+  resources:
+    batch:
+      size: 1000
+      max-concurrent: 500
+    adaptive:
+      memory-threshold: 0.90
+      cpu-threshold: 0.85
+    monitoring:
+      performance-log-interval: 900s  # Less frequent logging in production
+      detailed-metrics: false
+    discovery:
+      timeout:
+        seconds: 180
+    sync:
+      timeout:
+        seconds: 240
+    validation:
+      timeout:
+        seconds: 90
+    monitoring:
+      timeout:
+        seconds: 45
+
+logging:
+  level:
+    br.com.openfinance.service.resources: WARN
+    org.springframework.web.reactive: WARN
+    java.util.concurrent: ERROR
+
+---
+# Test Profile
+spring:
+  config:
+    activate:
+      on-profile: "test"
+
+openfinance:
+  resources:
+    enabled: true  # Keep enabled for integration tests
+    virtual-threads:
+      enabled: true
+      max-pool-size: 200
+    batch:
+      size: 30
+      max-concurrent: 15
+    adaptive:
+      enabled: false  # Disable adaptive behavior in tests for predictability
+    monitoring:
+      enabled: true
+      performance-log-interval: 10s
+    discovery:
+      timeout:
+        seconds: 20
+    sync:
+      timeout:
+        seconds: 30
+    validation:
+      timeout:
+        seconds: 10
+    monitoring:
+      timeout:
+        seconds: 8
+
+logging:
+  level:
+    br.com.openfinance.service.resources: DEBUG
+
+---
+# Performance Testing Profile
+spring:
+  config:
+    activate:
+      on-profile: "performance"
+
+openfinance:
+  resources:
+    virtual-threads:
+      max-pool-size: 15000
+    batch:
+      size: 3000
+      max-concurrent: 1500
+    adaptive:
+      batch-size:
+        max: 3000
+      concurrency:
+        max: 2000
+      discovery:
+        concurrency:
+          max: 800
+      sync:
+        concurrency:
+          max: 1000
+      validation:
+        concurrency:
+          max: 600
+      monitoring:
+        concurrency:
+          max: 700
+      api:
+        concurrency:
+          max: 4000
+    monitoring:
+      performance-log-interval: 30s
+      detailed-metrics: true
+
+logging:
+  level:
+    br.com.openfinance.service.resources: INFO
+    # Reduce logging overhead during performance testing
+    org.springframework: WARN
+    io.github.resilience4j: WARN
+
+---
+# Load Testing Profile
+spring:
+  config:
+    activate:
+      on-profile: "load-test"
+
+openfinance:
+  resources:
+    virtual-threads:
+      max-pool-size: 25000
+    batch:
+      size: 6000
+      max-concurrent: 3000
+    adaptive:
+      batch-size:
+        max: 6000
+      concurrency:
+        max: 3500
+      discovery:
+        concurrency:
+          max: 1000
+      sync:
+        concurrency:
+          max: 1500
+      validation:
+        concurrency:
+          max: 800
+      monitoring:
+        concurrency:
+          max: 1000
+      api:
+        concurrency:
+          max: 6000
+    monitoring:
+      performance-log-interval: 15s
+      detailed-metrics: false  # Reduce overhead during load testing
+
+logging:
+  level:
+    br.com.openfinance.service.resources: WARN
+    org.springframework: ERROR
+    io.github.resilience4j: ERROR

@@ -1,0 +1,263 @@
+# Advanced Persistence Configuration - Optimized for Virtual Threads and Parallel Processing
+
+spring:
+  # Primary JPA Configuration
+  jpa:
+    hibernate:
+      ddl-auto: validate
+      use-new-id-generator-mappings: true
+    properties:
+      hibernate:
+        # Performance optimizations
+        jdbc:
+          batch_size: 100
+          fetch_size: 50
+          time_zone: UTC
+        order_inserts: true
+        order_updates: true
+        batch_versioned_data: true
+        
+        # Connection release mode optimized for Virtual Threads
+        connection:
+          provider_disables_autocommit: true
+          release_mode: after_statement
+        
+        # Query optimizations
+        query:
+          plan_cache_max_size: 2048
+          plan_parameter_metadata_max_size: 128
+        
+        # Cache configuration
+        cache:
+          use_second_level_cache: true
+          use_query_cache: true
+          region:
+            factory_class: org.hibernate.cache.jcache.JCacheRegionFactory
+          provider_class: org.ehcache.jsr107.EhcacheCachingProvider
+        
+        # Statistics for monitoring
+        generate_statistics: true
+        session:
+          events:
+            log:
+              LOG_QUERIES_SLOWER_THAN_MS: 1000
+    
+    # Show SQL for debugging (disable in production)
+    show-sql: false
+    format-sql: false
+    
+  # Primary DataSource Configuration
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/openfinance}
+    username: ${DATABASE_USERNAME:openfinance}
+    password: ${DATABASE_PASSWORD:openfinance}
+    driver-class-name: org.postgresql.Driver
+    
+    # HikariCP optimizations for Virtual Threads
+    hikari:
+      pool-name: "OpenFinance-Primary-HikariCP"
+      maximum-pool-size: ${DATABASE_MAX_POOL_SIZE:200}
+      minimum-idle: ${DATABASE_MIN_IDLE:10}
+      idle-timeout: ${DATABASE_IDLE_TIMEOUT:600000}  # 10 minutes
+      max-lifetime: ${DATABASE_MAX_LIFETIME:1800000} # 30 minutes
+      connection-timeout: ${DATABASE_CONNECTION_TIMEOUT:30000} # 30 seconds
+      validation-timeout: ${DATABASE_VALIDATION_TIMEOUT:5000}  # 5 seconds
+      leak-detection-threshold: ${DATABASE_LEAK_DETECTION:60000} # 1 minute
+      
+      # PostgreSQL specific optimizations
+      data-source-properties:
+        cachePrepStmts: true
+        prepStmtCacheSize: 500
+        prepStmtCacheSqlLimit: 2048
+        useServerPrepStmts: true
+        useLocalSessionState: true
+        rewriteBatchedStatements: true
+        cacheResultSetMetadata: true
+        cacheServerConfiguration: true
+        elideSetAutoCommits: true
+        maintainTimeStats: false
+        # Virtual Thread optimizations
+        socketTimeout: 10000
+        loginTimeout: 5000
+        connectTimeout: 10000
+        tcpKeepAlive: true
+
+  # R2DBC Reactive Configuration
+  r2dbc:
+    url: ${R2DBC_URL:r2dbc:postgresql://localhost:5432/openfinance}
+    username: ${DATABASE_USERNAME:openfinance}
+    password: ${DATABASE_PASSWORD:openfinance}
+    pool:
+      enabled: true
+      initial-size: 10
+      max-size: ${R2DBC_MAX_POOL_SIZE:200}
+      max-idle-time: 10m
+      max-life-time: 30m
+      max-acquire-time: 30s
+      max-create-connection-time: 30s
+      validation-query: SELECT 1
+
+  # Flyway Configuration
+  flyway:
+    enabled: true
+    locations: classpath:sql
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    clean-disabled: true
+    schemas: public
+    table: flyway_schema_history
+    
+  # Transaction Management
+  transaction:
+    default-timeout: 30s
+    rollback-on-commit-failure: true
+
+# OpenFinance specific database configuration
+openfinance:
+  database:
+    # Virtual Threads configuration
+    virtual-threads:
+      enabled: true
+      max-pool-size: 500
+      connection-timeout: 10s
+      validation-timeout: 2s
+      
+    # Performance monitoring
+    monitoring:
+      enabled: true
+      slow-query-threshold: 1000ms
+      connection-pool-monitoring: true
+      query-statistics: true
+      
+    # Batch processing configuration
+    batch:
+      size: ${DATABASE_BATCH_SIZE:100}
+      fetch-size: ${DATABASE_FETCH_SIZE:50}
+      parallel-processing: true
+      max-concurrent-operations: ${DATABASE_MAX_CONCURRENT:50}
+      
+    # Connection pool optimization
+    pool:
+      max-size: ${DATABASE_MAX_POOL_SIZE:200}
+      min-idle: ${DATABASE_MIN_IDLE:10}
+      max-lifetime: ${DATABASE_MAX_LIFETIME:1800000}
+      connection-timeout: ${DATABASE_CONNECTION_TIMEOUT:30000}
+      idle-timeout: ${DATABASE_IDLE_TIMEOUT:600000}
+      leak-detection-threshold: ${DATABASE_LEAK_DETECTION:60000}
+
+# JCache Configuration
+cache:
+  jcache:
+    config: classpath:ehcache.xml
+
+# Actuator Configuration for Database Monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,metrics,prometheus,flyway,liquibase"
+  metrics:
+    tags:
+      application: openfinance-receptor
+      component: infrastructure-persistence
+    export:
+      prometheus:
+        enabled: true
+    jdbc:
+      datasource-metric-name: database.connections
+    web:
+      server:
+        auto-time-requests: true
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+    metrics:
+      enabled: true
+
+# Logging Configuration
+logging:
+  level:
+    org.hibernate.SQL: ${LOG_SQL_LEVEL:WARN}
+    org.hibernate.type.descriptor.sql.BasicBinder: ${LOG_SQL_PARAMS_LEVEL:WARN}
+    org.hibernate.engine.jdbc.batch.internal.BatchingBatch: DEBUG
+    org.springframework.orm.jpa.JpaTransactionManager: DEBUG
+    org.springframework.transaction: DEBUG
+    io.r2dbc.postgresql.QUERY: DEBUG
+    io.r2dbc.postgresql.PARAM: DEBUG
+    com.zaxxer.hikari: DEBUG
+    br.com.openfinance.infrastructure.persistence: DEBUG
+    # Virtual Thread debugging
+    java.util.concurrent: ${LOG_VIRTUAL_THREADS_LEVEL:INFO}
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level [%X{correlation-id}] [%X{transaction-id}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{correlation-id}] [%X{transaction-id}] %logger{36} - %msg%n"
+
+# Profile-specific configurations
+---
+spring:
+  config:
+    activate:
+      on-profile: "development"
+      
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        
+openfinance:
+  database:
+    monitoring:
+      slow-query-threshold: 500ms
+    pool:
+      max-size: 50
+      
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+---
+spring:
+  config:
+    activate:
+      on-profile: "production"
+      
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        
+openfinance:
+  database:
+    monitoring:
+      slow-query-threshold: 2000ms
+    pool:
+      max-size: 200
+      
+logging:
+  level:
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+    
+---
+spring:
+  config:
+    activate:
+      on-profile: "test"
+      
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+    
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+    
+  flyway:
+    enabled: false

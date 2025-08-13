@@ -1,0 +1,435 @@
+# Advanced Account Service Configuration - Optimized for Virtual Threads and high-performance processing
+
+# OpenFinance Account Service Configuration
+openfinance:
+  accounts:
+    # Core account processing settings
+    enabled: true
+    startup-delay: 5000  # 5 seconds
+    
+    # Virtual Threads configuration
+    virtual-threads:
+      enabled: true
+      max-pool-size: 3000
+      connection-timeout: 15s
+      sync-timeout: 30s
+      balance-update-timeout: 10s
+    
+    # Batch processing settings
+    batch:
+      size: 300
+      max-concurrent: 150
+      parallel-factor: 25
+      fetch-size: 150
+      timeout:
+        task: 45s
+        batch: 600s       # 10 minutes
+    
+    # Retry configuration
+    retry:
+      max-attempts: 4
+      backoff-delay: 3s
+      max-backoff-delay: 60s
+    
+    # API call configuration
+    timeout:
+      api-call: 45s
+      sync: 90s
+      balance-update: 20s
+    
+    # Adaptive resource management
+    adaptive:
+      enabled: true
+      batch-size:
+        min: 100
+        max: 1000
+      concurrency:
+        min: 50
+        max: 800
+      balance-update:
+        concurrency:
+          min: 20
+          max: 300
+      validation:
+        concurrency:
+          min: 15
+          max: 250
+      api:
+        concurrency:
+          min: 100
+          max: 1500
+      memory-threshold: 0.85    # 85% memory usage threshold
+      cpu-threshold: 0.80       # 80% CPU usage threshold
+      interval:
+        min: 15000   # 15 seconds
+        max: 180000  # 3 minutes
+    
+    # Account synchronization configuration
+    sync:
+      timeout:
+        seconds: 60
+      parallel:
+        enabled: true
+      automatic:
+        enabled: true
+        interval: 3600s  # 1 hour
+    
+    # Balance update configuration
+    balance:
+      timeout:
+        seconds: 20
+      parallel:
+        enabled: true
+      automatic:
+        enabled: true
+        interval: 900s   # 15 minutes
+    
+    # Performance monitoring
+    monitoring:
+      enabled: true
+      metrics-interval: 30s
+      performance-log-interval: 300s  # 5 minutes
+      slow-processing-threshold: 2000ms
+      detailed-metrics: true
+    
+    # Circuit breaker configuration
+    circuit-breaker:
+      failure-rate-threshold: 40
+      minimum-number-of-calls: 15
+      sliding-window-size: 30
+      wait-duration-in-open-state: 90s
+
+# Spring configuration
+spring:
+  # Task execution configuration
+  task:
+    execution:
+      pool:
+        core-size: 30
+        max-size: 800
+        queue-capacity: 2000
+        keep-alive: 90s
+      thread-name-prefix: "account-"
+    scheduling:
+      pool:
+        size: 30
+        thread-name-prefix: "account-task-"
+  
+  # Async configuration
+  async:
+    core-pool-size: 30
+    max-pool-size: 800
+    queue-capacity: 2000
+    thread-name-prefix: "async-account-"
+
+  # WebFlux configuration for reactive processing
+  webflux:
+    multipart:
+      max-in-memory-size: 20MB
+      max-disk-usage-per-part: 200MB
+    
+  # Jackson configuration for JSON processing
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+      write-date-timestamps-as-nanoseconds: false
+    deserialization:
+      read-date-timestamps-as-nanoseconds: false
+
+# Resilience4j Configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      account-processing:
+        failure-rate-threshold: 40
+        minimum-number-of-calls: 15
+        sliding-window-size: 30
+        wait-duration-in-open-state: 90s
+        permitted-number-of-calls-in-half-open-state: 8
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - java.lang.Exception
+      account-sync:
+        failure-rate-threshold: 35
+        minimum-number-of-calls: 10
+        sliding-window-size: 20
+        wait-duration-in-open-state: 60s
+      balance-update:
+        failure-rate-threshold: 50
+        minimum-number-of-calls: 8
+        sliding-window-size: 15
+        wait-duration-in-open-state: 45s
+      account-api-calls:
+        failure-rate-threshold: 60
+        minimum-number-of-calls: 20
+        sliding-window-size: 40
+        wait-duration-in-open-state: 120s
+  
+  retry:
+    instances:
+      account-processing:
+        max-attempts: 4
+        wait-duration: 3s
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - java.lang.RuntimeException
+          - java.util.concurrent.TimeoutException
+        ignore-exceptions:
+          - java.lang.IllegalArgumentException
+      account-sync:
+        max-attempts: 3
+        wait-duration: 2s
+        exponential-backoff-multiplier: 1.5
+        retry-exceptions:
+          - java.util.concurrent.TimeoutException
+          - java.net.SocketTimeoutException
+      balance-update:
+        max-attempts: 3
+        wait-duration: 1s
+        retry-exceptions:
+          - java.util.concurrent.TimeoutException
+      account-api-calls:
+        max-attempts: 5
+        wait-duration: 5s
+        exponential-backoff-multiplier: 1.8
+  
+  ratelimiter:
+    instances:
+      account-processing:
+        limit-for-period: 300
+        limit-refresh-period: 1s
+        timeout-duration: 15s
+      account-sync:
+        limit-for-period: 200
+        limit-refresh-period: 1s
+        timeout-duration: 10s
+      balance-update:
+        limit-for-period: 500
+        limit-refresh-period: 1s
+        timeout-duration: 8s
+      account-api-calls:
+        limit-for-period: 1500
+        limit-refresh-period: 1s
+        timeout-duration: 20s
+
+# Actuator configuration for monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,metrics,prometheus,info,env,threaddump"
+  metrics:
+    tags:
+      application: openfinance-receptor
+      component: service-accounts
+    export:
+      prometheus:
+        enabled: true
+    enable:
+      jvm: true
+      system: true
+      process: true
+    web:
+      server:
+        auto-time-requests: true
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+    threaddump:
+      enabled: true
+  health:
+    circuitbreakers:
+      enabled: true
+  info:
+    env:
+      enabled: true
+    java:
+      enabled: true
+
+# Logging configuration
+logging:
+  level:
+    br.com.openfinance.service.accounts: INFO
+    org.springframework.web.reactive: DEBUG
+    io.github.resilience4j: DEBUG
+    # Virtual Thread debugging (enable only for development)
+    java.util.concurrent: WARN
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level [%X{correlation-id}] [%X{account-id}] [%X{consent-id}] [%X{organization-id}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{correlation-id}] [%X{account-id}] [%X{consent-id}] [%X{organization-id}] %logger{36} - %msg%n"
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: "development"
+
+openfinance:
+  accounts:
+    batch:
+      size: 100
+      max-concurrent: 30
+    adaptive:
+      memory-threshold: 0.70
+      cpu-threshold: 0.60
+    monitoring:
+      performance-log-interval: 60s  # More frequent logging in dev
+    sync:
+      timeout:
+        seconds: 30
+    balance:
+      timeout:
+        seconds: 10
+
+logging:
+  level:
+    br.com.openfinance.service.accounts: DEBUG
+    org.springframework.web.reactive: DEBUG
+    java.util.concurrent: INFO
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: "production"
+
+openfinance:
+  accounts:
+    batch:
+      size: 800
+      max-concurrent: 400
+    adaptive:
+      memory-threshold: 0.90
+      cpu-threshold: 0.85
+    monitoring:
+      performance-log-interval: 900s  # Less frequent logging in production
+      detailed-metrics: false
+    sync:
+      timeout:
+        seconds: 120
+    balance:
+      timeout:
+        seconds: 30
+
+logging:
+  level:
+    br.com.openfinance.service.accounts: WARN
+    org.springframework.web.reactive: WARN
+    java.util.concurrent: ERROR
+
+---
+# Test Profile
+spring:
+  config:
+    activate:
+      on-profile: "test"
+
+openfinance:
+  accounts:
+    enabled: true  # Keep enabled for integration tests
+    virtual-threads:
+      enabled: true
+      max-pool-size: 100
+    batch:
+      size: 20
+      max-concurrent: 10
+    adaptive:
+      enabled: false  # Disable adaptive behavior in tests for predictability
+    monitoring:
+      enabled: true
+      performance-log-interval: 10s
+    sync:
+      timeout:
+        seconds: 10
+    balance:
+      timeout:
+        seconds: 5
+
+logging:
+  level:
+    br.com.openfinance.service.accounts: DEBUG
+
+---
+# Performance Testing Profile
+spring:
+  config:
+    activate:
+      on-profile: "performance"
+
+openfinance:
+  accounts:
+    virtual-threads:
+      max-pool-size: 10000
+    batch:
+      size: 2000
+      max-concurrent: 1000
+    adaptive:
+      batch-size:
+        max: 2000
+      concurrency:
+        max: 1500
+      balance-update:
+        concurrency:
+          max: 800
+      validation:
+        concurrency:
+          max: 600
+      api:
+        concurrency:
+          max: 3000
+    monitoring:
+      performance-log-interval: 30s
+      detailed-metrics: true
+
+logging:
+  level:
+    br.com.openfinance.service.accounts: INFO
+    # Reduce logging overhead during performance testing
+    org.springframework: WARN
+    io.github.resilience4j: WARN
+
+---
+# Load Testing Profile
+spring:
+  config:
+    activate:
+      on-profile: "load-test"
+
+openfinance:
+  accounts:
+    virtual-threads:
+      max-pool-size: 20000
+    batch:
+      size: 5000
+      max-concurrent: 2000
+    adaptive:
+      batch-size:
+        max: 5000
+      concurrency:
+        max: 2500
+      balance-update:
+        concurrency:
+          max: 1000
+      validation:
+        concurrency:
+          max: 800
+      api:
+        concurrency:
+          max: 5000
+    monitoring:
+      performance-log-interval: 15s
+      detailed-metrics: false  # Reduce overhead during load testing
+
+logging:
+  level:
+    br.com.openfinance.service.accounts: WARN
+    org.springframework: ERROR
+    io.github.resilience4j: ERROR

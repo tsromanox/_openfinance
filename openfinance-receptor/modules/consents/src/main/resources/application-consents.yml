@@ -1,0 +1,349 @@
+# Advanced Consent Service Configuration - Optimized for Virtual Threads and high-performance processing
+
+# OpenFinance Consent Service Configuration
+openfinance:
+  consents:
+    # Core consent processing settings
+    enabled: true
+    startup-delay: 5000  # 5 seconds
+    
+    # Virtual Threads configuration
+    virtual-threads:
+      enabled: true
+      max-pool-size: 2000
+      connection-timeout: 10s
+      validation-timeout: 2s
+    
+    # Batch processing settings
+    batch:
+      size: 200
+      max-concurrent: 100
+      parallel-factor: 20
+      fetch-size: 100
+      timeout:
+        task: 30s
+        batch: 300s       # 5 minutes
+    
+    # Retry configuration
+    retry:
+      max-attempts: 3
+      backoff-delay: 2s
+      max-backoff-delay: 30s
+    
+    # API call configuration
+    timeout:
+      api-call: 30s
+      validation: 10s
+      processing: 60s
+    
+    # Adaptive resource management
+    adaptive:
+      enabled: true
+      batch-size:
+        min: 50
+        max: 500
+      concurrency:
+        min: 20
+        max: 500
+      validation:
+        concurrency:
+          min: 10
+          max: 200
+      api:
+        concurrency:
+          min: 50
+          max: 1000
+      memory-threshold: 0.85    # 85% memory usage threshold
+      cpu-threshold: 0.80       # 80% CPU usage threshold
+      interval:
+        min: 10000   # 10 seconds
+        max: 120000  # 2 minutes
+    
+    # Validation configuration
+    validation:
+      timeout:
+        seconds: 30
+      parallel:
+        enabled: true
+      business-rules:
+        enabled: true
+      external:
+        enabled: true
+    
+    # Performance monitoring
+    monitoring:
+      enabled: true
+      metrics-interval: 30s
+      performance-log-interval: 300s  # 5 minutes
+      slow-processing-threshold: 1000ms
+    
+    # Circuit breaker configuration
+    circuit-breaker:
+      failure-rate-threshold: 50
+      minimum-number-of-calls: 10
+      sliding-window-size: 20
+      wait-duration-in-open-state: 60s
+
+# Spring configuration
+spring:
+  # Task execution configuration
+  task:
+    execution:
+      pool:
+        core-size: 20
+        max-size: 500
+        queue-capacity: 1000
+        keep-alive: 60s
+      thread-name-prefix: "consent-"
+    scheduling:
+      pool:
+        size: 20
+        thread-name-prefix: "consent-task-"
+  
+  # Async configuration
+  async:
+    core-pool-size: 20
+    max-pool-size: 500
+    queue-capacity: 1000
+    thread-name-prefix: "async-consent-"
+
+  # WebFlux configuration for reactive processing
+  webflux:
+    multipart:
+      max-in-memory-size: 10MB
+      max-disk-usage-per-part: 100MB
+    
+  # Jackson configuration for JSON processing
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+      write-date-timestamps-as-nanoseconds: false
+    deserialization:
+      read-date-timestamps-as-nanoseconds: false
+
+# Resilience4j Configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      consent-processing:
+        failure-rate-threshold: 50
+        minimum-number-of-calls: 10
+        sliding-window-size: 20
+        wait-duration-in-open-state: 60s
+        permitted-number-of-calls-in-half-open-state: 5
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - java.lang.Exception
+      consent-validation:
+        failure-rate-threshold: 30
+        minimum-number-of-calls: 5
+        sliding-window-size: 10
+        wait-duration-in-open-state: 30s
+      consent-api-calls:
+        failure-rate-threshold: 60
+        minimum-number-of-calls: 15
+        sliding-window-size: 30
+        wait-duration-in-open-state: 90s
+  
+  retry:
+    instances:
+      consent-processing:
+        max-attempts: 3
+        wait-duration: 2s
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - java.lang.RuntimeException
+        ignore-exceptions:
+          - java.lang.IllegalArgumentException
+      consent-validation:
+        max-attempts: 2
+        wait-duration: 1s
+        retry-exceptions:
+          - java.util.concurrent.TimeoutException
+      consent-api-calls:
+        max-attempts: 4
+        wait-duration: 5s
+        exponential-backoff-multiplier: 1.5
+  
+  ratelimiter:
+    instances:
+      consent-processing:
+        limit-for-period: 200
+        limit-refresh-period: 1s
+        timeout-duration: 10s
+      consent-validation:
+        limit-for-period: 500
+        limit-refresh-period: 1s
+        timeout-duration: 5s
+      consent-api-calls:
+        limit-for-period: 1000
+        limit-refresh-period: 1s
+        timeout-duration: 15s
+
+# Actuator configuration for monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,metrics,prometheus,info,env"
+  metrics:
+    tags:
+      application: openfinance-receptor
+      component: service-consents
+    export:
+      prometheus:
+        enabled: true
+    enable:
+      jvm: true
+      system: true
+      process: true
+    web:
+      server:
+        auto-time-requests: true
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+  health:
+    circuitbreakers:
+      enabled: true
+  info:
+    env:
+      enabled: true
+    java:
+      enabled: true
+
+# Logging configuration
+logging:
+  level:
+    br.com.openfinance.service.consents: INFO
+    org.springframework.web.reactive: DEBUG
+    io.github.resilience4j: DEBUG
+    # Virtual Thread debugging (enable only for development)
+    java.util.concurrent: WARN
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level [%X{correlation-id}] [%X{consent-id}] [%X{organization-id}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{correlation-id}] [%X{consent-id}] [%X{organization-id}] %logger{36} - %msg%n"
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: "development"
+
+openfinance:
+  consents:
+    batch:
+      size: 50
+      max-concurrent: 20
+    adaptive:
+      memory-threshold: 0.70
+      cpu-threshold: 0.60
+    monitoring:
+      performance-log-interval: 60s  # More frequent logging in dev
+    validation:
+      timeout:
+        seconds: 10
+
+logging:
+  level:
+    br.com.openfinance.service.consents: DEBUG
+    org.springframework.web.reactive: DEBUG
+    java.util.concurrent: INFO
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: "production"
+
+openfinance:
+  consents:
+    batch:
+      size: 500
+      max-concurrent: 200
+    adaptive:
+      memory-threshold: 0.90
+      cpu-threshold: 0.85
+    monitoring:
+      performance-log-interval: 600s  # Less frequent logging in production
+    validation:
+      timeout:
+        seconds: 45
+
+logging:
+  level:
+    br.com.openfinance.service.consents: WARN
+    org.springframework.web.reactive: WARN
+    java.util.concurrent: ERROR
+
+---
+# Test Profile
+spring:
+  config:
+    activate:
+      on-profile: "test"
+
+openfinance:
+  consents:
+    enabled: true  # Keep enabled for integration tests
+    virtual-threads:
+      enabled: true
+      max-pool-size: 50
+    batch:
+      size: 10
+      max-concurrent: 5
+    adaptive:
+      enabled: false  # Disable adaptive behavior in tests for predictability
+    monitoring:
+      enabled: true
+      performance-log-interval: 10s
+    validation:
+      timeout:
+        seconds: 5
+
+logging:
+  level:
+    br.com.openfinance.service.consents: DEBUG
+
+---
+# Performance Testing Profile
+spring:
+  config:
+    activate:
+      on-profile: "performance"
+
+openfinance:
+  consents:
+    virtual-threads:
+      max-pool-size: 5000
+    batch:
+      size: 1000
+      max-concurrent: 500
+    adaptive:
+      batch-size:
+        max: 1000
+      concurrency:
+        max: 1000
+      validation:
+        concurrency:
+          max: 500
+      api:
+        concurrency:
+          max: 2000
+    monitoring:
+      performance-log-interval: 30s
+
+logging:
+  level:
+    br.com.openfinance.service.consents: INFO
+    # Reduce logging overhead during performance testing
+    org.springframework: WARN
+    io.github.resilience4j: WARN

@@ -1,0 +1,118 @@
+# OpenFinance Client Configuration - Optimized for Parallel Processing
+
+openfinance:
+  client:
+    base-url: ${OPENFINANCE_BASE_URL:https://api.openfinance.org.br}
+    max-concurrent-requests: ${OPENFINANCE_MAX_CONCURRENT:1000}
+    max-connections: ${OPENFINANCE_MAX_CONNECTIONS:200}
+    max-idle-time-seconds: ${OPENFINANCE_MAX_IDLE_TIME:20}
+    max-life-time-seconds: ${OPENFINANCE_MAX_LIFE_TIME:60}
+    pending-acquire-timeout-seconds: ${OPENFINANCE_PENDING_TIMEOUT:45}
+    connect-timeout-millis: ${OPENFINANCE_CONNECT_TIMEOUT:10000}
+    read-timeout-seconds: ${OPENFINANCE_READ_TIMEOUT:30}
+    write-timeout-seconds: ${OPENFINANCE_WRITE_TIMEOUT:30}
+    max-buffer-size-bytes: ${OPENFINANCE_MAX_BUFFER_SIZE:16777216} # 16MB
+  
+  oauth2:
+    token-url: ${OPENFINANCE_OAUTH2_TOKEN_URL:https://auth.openfinance.org.br/token}
+    client-id: ${OPENFINANCE_CLIENT_ID:your-client-id}
+    client-secret: ${OPENFINANCE_CLIENT_SECRET:your-client-secret}
+    scope: ${OPENFINANCE_SCOPE:accounts consents}
+
+# Resilience4j Configuration
+resilience4j:
+  circuitbreaker:
+    instances:
+      openfinance-api:
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        permitted-number-of-calls-in-half-open-state: 5
+        slow-call-rate-threshold: 50
+        slow-call-duration-threshold: 10s
+        writable-stack-trace-enabled: false
+        automatic-transition-from-open-to-half-open-enabled: true
+  
+  retry:
+    instances:
+      openfinance-api:
+        max-attempts: 3
+        wait-duration: 2s
+        exponential-backoff-multiplier: 2.0
+        enable-exponential-backoff: true
+        retry-exceptions:
+          - java.net.SocketTimeoutException
+          - java.net.ConnectException
+          - org.springframework.web.client.ResourceAccessException
+  
+  ratelimiter:
+    instances:
+      openfinance-api:
+        limit-for-period: 1000
+        limit-refresh-period: 60s
+        timeout-duration: 5s
+        writable-stack-trace-enabled: false
+  
+  bulkhead:
+    instances:
+      openfinance-api:
+        max-concurrent-calls: 100
+        max-wait-duration: 10s
+        writable-stack-trace-enabled: false
+
+# Virtual Threads Configuration
+spring:
+  threads:
+    virtual:
+      enabled: true
+  task:
+    execution:
+      pool:
+        core-size: 1
+        max-size: 1000
+        queue-capacity: 0
+      thread-name-prefix: "openfinance-"
+
+# Connection Pool Configuration
+server:
+  netty:
+    connection-timeout: 10s
+    h2c-max-content-length: 16MB
+  
+# Micrometer Metrics
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,metrics,prometheus"
+  metrics:
+    tags:
+      application: openfinance-receptor
+      component: infrastructure-client
+    export:
+      prometheus:
+        enabled: true
+  endpoint:
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+
+# Logging Configuration
+logging:
+  level:
+    br.com.openfinance.infrastructure.client: DEBUG
+    io.github.resilience4j: DEBUG
+    org.springframework.web.reactive.function.client: DEBUG
+    reactor.netty.http.client: DEBUG
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level [%X{correlation-id}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{correlation-id}] %logger{36} - %msg%n"
+
+# Cache Configuration for OAuth2 tokens
+spring:
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=1000,expireAfterWrite=55m
