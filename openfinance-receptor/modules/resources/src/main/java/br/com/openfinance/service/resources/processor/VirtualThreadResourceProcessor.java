@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 /**
@@ -97,8 +98,10 @@ public class VirtualThreadResourceProcessor {
                                 return List.<Resource>of();
                             }
                         }))
-                        .map(Supplier.class::cast)
-                        .toList();
+                        //.map(Supplier.class::cast)
+                        .map(supplier -> (Supplier<List<Resource>>) supplier)
+                        .collect(Collectors.toCollection(ArrayList::new));
+                        //.toList();
                 
                 // Wait for all tasks to complete or fail
                 scope.join();
