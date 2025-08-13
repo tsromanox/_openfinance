@@ -59,6 +59,10 @@ public class Consent {
         return isActive() && hasPermission(Permission.ACCOUNTS_BALANCES_READ);
     }
 
+    public boolean canAccessResources() {
+        return isActive() && hasPermission(Permission.RESOURCES_READ);
+    }
+
     public boolean hasPermission(Permission permission) {
         return permissions.contains(permission);
     }

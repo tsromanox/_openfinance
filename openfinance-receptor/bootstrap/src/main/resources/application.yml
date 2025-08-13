@@ -1,0 +1,437 @@
+# OpenFinance Receptor Application Configuration
+# High-performance resource processing with Virtual Threads and adaptive management
+
+spring:
+  application:
+    name: openfinance-receptor
+  
+  # Profile configuration
+  profiles:
+    active: development
+    include:
+      - virtual-threads
+      - resources
+  
+  # Server configuration
+  server:
+    port: 8080
+    servlet:
+      context-path: /
+    netty:
+      connection-timeout: 30s
+      idle-timeout: 60s
+    compression:
+      enabled: true
+      mime-types: 
+        - application/json
+        - application/xml
+        - text/html
+        - text/xml
+        - text/plain
+  
+  # Database configuration
+  datasource:
+    url: jdbc:postgresql://localhost:5432/openfinance_receptor
+    username: openfinance
+    password: openfinance
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 50
+      minimum-idle: 10
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
+  
+  # JPA configuration
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        use_sql_comments: false
+        jdbc:
+          batch_size: 50
+          order_inserts: true
+          order_updates: true
+        connection:
+          provider_disables_autocommit: true
+  
+  # Flyway migration
+  flyway:
+    enabled: true
+    locations: classpath:sql
+    baseline-on-migrate: true
+    validate-on-migrate: true
+  
+  # Virtual Threads configuration
+  threads:
+    virtual:
+      enabled: true
+  
+  # Task execution configuration for Virtual Threads
+  task:
+    execution:
+      pool:
+        core-size: 0
+        max-size: 10000
+        queue-capacity: 0
+        keep-alive: 60s
+      thread-name-prefix: "receptor-"
+    scheduling:
+      pool:
+        size: 20
+        thread-name-prefix: "receptor-scheduler-"
+  
+  # Cache configuration
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=10000,expireAfterWrite=1h
+  
+  # JSON configuration
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+      write-date-timestamps-as-nanoseconds: false
+      indent-output: false
+    deserialization:
+      read-date-timestamps-as-nanoseconds: false
+      fail-on-unknown-properties: false
+  
+  # Security configuration (minimal for development)
+  security:
+    user:
+      name: admin
+      password: admin
+      roles: ADMIN
+
+# OpenFinance specific configuration
+openfinance:
+  # Virtual Threads configuration
+  virtual-threads:
+    enabled: true
+    max-pool-size: 10000
+    connection-timeout: 30s
+    
+  # Resource processing configuration  
+  resources:
+    enabled: true
+    startup-delay: 10s
+    
+    # Discovery configuration
+    discovery:
+      enabled: true
+      automatic:
+        enabled: true
+        interval: 7200s  # 2 hours
+      endpoints:
+        - "https://data.directory.openbankingbrasil.org.br/participants"
+        - "https://opendata.providers.org.br/discovery"
+    
+    # Synchronization configuration
+    sync:
+      enabled: true
+      automatic:
+        enabled: true
+        interval: 3600s  # 1 hour
+      parallel:
+        enabled: true
+        max-concurrent: 100
+    
+    # Validation configuration
+    validation:
+      enabled: true
+      automatic:
+        enabled: true
+        interval: 1800s  # 30 minutes
+      parallel:
+        enabled: true
+        max-concurrent: 50
+    
+    # Health monitoring configuration
+    monitoring:
+      enabled: true
+      automatic:
+        enabled: true
+        interval: 300s   # 5 minutes
+      parallel:
+        enabled: true
+        max-concurrent: 75
+    
+    # Performance monitoring
+    performance:
+      enabled: true
+      metrics-interval: 60s
+      detailed-metrics: true
+      slow-processing-threshold: 5000ms
+
+# Actuator configuration
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,metrics,prometheus,info,env,threaddump,flyway"
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+    threaddump:
+      enabled: true
+    flyway:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      instance: ${HOSTNAME:localhost}
+    export:
+      prometheus:
+        enabled: true
+        step: 30s
+    enable:
+      jvm: true
+      system: true
+      process: true
+      tomcat: true
+      hikaricp: true
+    web:
+      server:
+        auto-time-requests: true
+  health:
+    circuitbreakers:
+      enabled: true
+    ratelimiters:
+      enabled: true
+    db:
+      enabled: true
+  info:
+    env:
+      enabled: true
+    java:
+      enabled: true
+    build:
+      enabled: true
+
+# Logging configuration
+logging:
+  level:
+    br.com.openfinance: INFO
+    org.springframework.web: INFO
+    org.springframework.data: INFO
+    org.hibernate: WARN
+    org.springframework.transaction: INFO
+    org.springframework.scheduling: INFO
+    org.springframework.cache: INFO
+    # Virtual Thread debugging (enable for debugging)
+    java.util.concurrent: WARN
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level [%X{correlation-id}] [%X{resource-id}] [%X{organization-id}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{correlation-id}] [%X{resource-id}] [%X{organization-id}] %logger{36} - %msg%n"
+  file:
+    name: logs/openfinance-receptor.log
+  logback:
+    rollingpolicy:
+      max-file-size: 100MB
+      max-history: 30
+      total-size-cap: 3GB
+
+# OpenAPI/Swagger configuration
+springdoc:
+  api-docs:
+    enabled: true
+    path: /api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+  show-actuator: true
+
+---
+# Development Profile
+spring:
+  config:
+    activate:
+      on-profile: development
+
+  # Database configuration for development
+  datasource:
+    url: jdbc:postgresql://localhost:5432/openfinance_receptor_dev
+    username: openfinance_dev
+    password: openfinance_dev
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+
+  # JPA configuration for development
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+
+# Logging for development
+logging:
+  level:
+    br.com.openfinance: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.data: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    java.util.concurrent: DEBUG
+
+# OpenFinance configuration for development
+openfinance:
+  resources:
+    performance:
+      detailed-metrics: true
+      metrics-interval: 30s
+    discovery:
+      automatic:
+        interval: 300s  # 5 minutes for faster testing
+    sync:
+      automatic:
+        interval: 600s  # 10 minutes for faster testing
+    validation:
+      automatic:
+        interval: 300s  # 5 minutes for faster testing
+    monitoring:
+      automatic:
+        interval: 120s  # 2 minutes for faster testing
+
+---
+# Production Profile
+spring:
+  config:
+    activate:
+      on-profile: production
+
+  # Server configuration for production
+  server:
+    port: 8080
+    servlet:
+      session:
+        timeout: 30m
+    compression:
+      enabled: true
+
+  # Database configuration for production
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/openfinance_receptor_prod}
+    username: ${DATABASE_USERNAME:openfinance_prod}
+    password: ${DATABASE_PASSWORD:openfinance_prod}
+    hikari:
+      maximum-pool-size: 100
+      minimum-idle: 20
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+
+  # JPA configuration for production
+  jpa:
+    show-sql: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 100
+
+# Security for production
+spring:
+  security:
+    user:
+      name: ${ADMIN_USERNAME:admin}
+      password: ${ADMIN_PASSWORD}
+
+# Logging for production
+logging:
+  level:
+    br.com.openfinance: INFO
+    org.springframework: WARN
+    org.hibernate: WARN
+    java.util.concurrent: ERROR
+  file:
+    name: /var/log/openfinance-receptor/application.log
+
+# OpenFinance configuration for production
+openfinance:
+  virtual-threads:
+    max-pool-size: 25000
+  resources:
+    performance:
+      detailed-metrics: false
+      metrics-interval: 300s  # 5 minutes
+    discovery:
+      automatic:
+        interval: 7200s  # 2 hours
+    sync:
+      automatic:
+        interval: 3600s  # 1 hour
+    validation:
+      automatic:
+        interval: 1800s  # 30 minutes
+    monitoring:
+      automatic:
+        interval: 300s   # 5 minutes
+
+---
+# Test Profile
+spring:
+  config:
+    activate:
+      on-profile: test
+
+  # Database configuration for testing
+  datasource:
+    url: jdbc:h2:mem:testdb
+    username: sa
+    password: 
+    driver-class-name: org.h2.Driver
+
+  # JPA configuration for testing
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+
+  # Flyway disabled for tests
+  flyway:
+    enabled: false
+
+# OpenFinance configuration for testing
+openfinance:
+  resources:
+    enabled: true
+    discovery:
+      automatic:
+        enabled: false  # Disable automatic processes in tests
+    sync:
+      automatic:
+        enabled: false
+    validation:
+      automatic:
+        enabled: false
+    monitoring:
+      automatic:
+        enabled: false
+    performance:
+      detailed-metrics: false
+
+# Logging for testing
+logging:
+  level:
+    br.com.openfinance: DEBUG
+    org.springframework.test: DEBUG
