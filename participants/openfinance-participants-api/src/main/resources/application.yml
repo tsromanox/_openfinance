@@ -1,0 +1,58 @@
+spring:
+  application:
+    name: openfinance-participants-api
+  profiles:
+    active: prod
+  webflux:
+    base-path: /participants
+
+server:
+  port: 8080
+  servlet:
+    context-path: /participants
+
+openfinance:
+  participants:
+    api:
+      url: https://data.directory.openbankingbrasil.org.br/participants
+      timeout: 30
+  webclient:
+    timeout: 30
+    max-memory-size: 10485760
+
+logging:
+  level:
+    br.com.openfinance: INFO
+    org.springframework.web.reactive.function.client: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    disable-swagger-default-url: true
+  packages-to-scan: br.com.openfinance.participants.controller
+
+openapi:
+  service:
+    title: 'API de Participantes Open Finance Brasil'
+    description: 'API para consulta de participantes do Open Finance Brasil'
+    version: '1.0.0'
+    url: 'http://localhost:8080/participants'
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,openapi,swagger-ui
+  endpoint:
+    health:
+      show-details: always
+    web:
+      exposure:
+        include: health,info,metrics,prometheus

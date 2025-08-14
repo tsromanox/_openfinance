@@ -1,0 +1,14 @@
+# Perfil de teste
+spring:
+  config:
+    activate:
+      on-profile: test
+
+openfinance:
+  participants:
+    api:
+      url: http://localhost:8081/mock/participants
+
+logging:
+  level:
+    br.com.openfinance: DEBUG

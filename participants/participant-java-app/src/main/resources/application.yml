@@ -1,0 +1,67 @@
+spring:
+  application:
+    name: participant-java-app
+  # Config de Virtual Threads
+  threads:
+    virtual:
+      enabled: true
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=500,expireAfterWrite=2h
+  # Configurações WebFlux
+  webflux:
+    base-path: /reactive
+
+participant:
+  api:
+    base-url: https://data.directory.openbankingbrasil.org.br
+
+# Configurações do servidor
+server:
+  port: 8080
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json
+    min-response-size: 1024
+  http2:
+    enabled: true
+  undertow:
+    threads:
+      io: 16
+      worker: 200
+    buffer-size: 1024
+    direct-buffers: true
+
+# Configurações OpenAPI/Swagger
+springdoc:
+  api-docs:
+    enabled: true
+    path: /api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+  packages-to-scan: br.com.openfinance.controller
+  paths-to-match: /api/**
+
+# Config de Log
+logging:
+  level:
+    root: INFO
+    br.com.openfinance: DEBUG
+    org.springframework.web: INFO
+    org.springframework.kafka: INFO
+    org.hibernate: WARN
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    io.lettuce.core: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/openfinance.log
+    max-size: 100MB
+    max-history: 30
+    total-size-cap: 1GB

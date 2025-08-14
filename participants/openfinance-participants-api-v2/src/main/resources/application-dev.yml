@@ -1,0 +1,15 @@
+# Perfil de desenvolvimento
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+openfinance:
+  participants:
+    api:
+      url: https://data.sandbox.directory.openbankingbrasil.org.br/participants
+
+logging:
+  level:
+    br.com.openfinance: DEBUG
+    org.springframework.web.reactive.function.client: DEBUG

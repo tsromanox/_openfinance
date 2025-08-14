@@ -1,0 +1,84 @@
+spring:
+  application:
+    name: openfinance-participants-api
+  # Config de Virtual Threads
+  threads:
+    virtual:
+      enabled: true
+  profiles:
+    active: prod
+  # Settings for high concurrency
+  task:
+    execution:
+      pool:
+        core-size: 50
+        max-size: 100
+        queue-capacity: 10000
+  webflux:
+    base-path: /participants
+
+server:
+  port: 8080
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+  # Settings to support 10000 simultaneous requests
+  tomcat:
+    threads:
+      max: 500
+      min-spare: 100
+    accept-count: 10000
+    max-connections: 10000
+    connection-timeout: 30s
+  #servlet:
+  #  context-path: /participants
+
+# Open Finance settings
+openfinance:
+  participants:
+    api:
+      url: https://data.directory.openbankingbrasil.org.br/participants
+      timeout: 30
+  webclient:
+    timeout: 30
+    max-memory-size: 10485760 # 10MB
+
+# Log settings
+logging:
+  level:
+    br.com.openfinance: INFO
+    org.springframework.web.reactive.function.client: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/openfinance-participants.log
+
+# Actuator settings
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+# SpringDoc OpenAPI settings
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    disable-swagger-default-url: true
+  packages-to-scan: br.com.openfinance.participants.controller
+  # IMPROVEMENT: O path-to-match deve incluir o base-path
+  paths-to-match: /api/**
