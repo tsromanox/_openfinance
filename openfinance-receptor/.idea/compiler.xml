@@ -6,6 +6,16 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
+      </profile>
+      <profile name="Annotation profile for bootstrap" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/mapstruct/mapstruct-processor/1.6.3/mapstruct-processor-1.6.3.jar" />
+          <entry name="$MAVEN_REPOSITORY$/org/mapstruct/mapstruct/1.6.3/mapstruct-1.6.3.jar" />
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.36/lombok-1.18.36.jar" />
+        </processorPath>
         <module name="bootstrap" />
       </profile>
       <profile name="Annotation profile for OpenFinance Receptor Platform" enabled="true">
@@ -25,6 +35,7 @@
         <module name="infrastructure-scheduler" />
         <module name="core-domain" />
         <module name="infrastructure-persistence" />
+        <module name="accounts-service" />
         <module name="core-application" />
       </profile>
     </annotationProcessing>
@@ -34,6 +45,8 @@
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="accounts-service" options="-parameters --enable-preview" />
+      <module name="bootstrap" options="-parameters --enable-preview -parameters" />
       <module name="client" options="-parameters --enable-preview" />
       <module name="core-application" options="-parameters --enable-preview" />
       <module name="core-domain" options="-parameters --enable-preview" />

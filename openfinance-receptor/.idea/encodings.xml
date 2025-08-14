@@ -20,6 +20,8 @@
     <file url="file://$PROJECT_DIR$/modules/consents/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/modules/resources/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/modules/resources/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/services/accounts-service/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/services/accounts-service/src/main/resources" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/src/main/java" charset="UTF-8" />
     <file url="file://$PROJECT_DIR$/src/main/resources" charset="UTF-8" />
   </component>

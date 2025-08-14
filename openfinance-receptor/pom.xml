@@ -43,6 +43,7 @@
         <module>modules/consents</module>
         <module>modules/accounts</module>
         <module>modules/resources</module>
+        <module>services/accounts-service</module>
         <module>bootstrap</module>
     </modules>
 </project>
