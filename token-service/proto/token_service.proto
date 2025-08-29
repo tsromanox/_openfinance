@@ -1,0 +1,144 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "br.com.openfinance.token.grpc";
+option java_outer_classname = "TokenServiceProto";
+
+package tokenservice;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+// Service definition
+service TokenService {
+  // Get or create access token for a consent
+  rpc GetAccessToken(GetAccessTokenRequest) returns (AccessTokenResponse);
+  
+  // Refresh an existing token
+  rpc RefreshAccessToken(RefreshAccessTokenRequest) returns (AccessTokenResponse);
+  
+  // Revoke a token
+  rpc RevokeAccessToken(RevokeAccessTokenRequest) returns (RevokeAccessTokenResponse);
+  
+  // Validate token
+  rpc ValidateAccessToken(ValidateAccessTokenRequest) returns (ValidateAccessTokenResponse);
+  
+  // Get token metadata
+  rpc GetTokenMetadata(GetTokenMetadataRequest) returns (TokenMetadata);
+  
+  // Stream token events (for monitoring)
+  rpc StreamTokenEvents(google.protobuf.Empty) returns (stream TokenEvent);
+  
+  // Batch get tokens
+  rpc BatchGetAccessTokens(BatchGetAccessTokensRequest) returns (BatchGetAccessTokensResponse);
+}
+
+// Messages
+message GetAccessTokenRequest {
+  string consent_id = 1;
+  string organization_id = 2;
+  repeated string scopes = 3;
+  map<string, string> metadata = 4;
+}
+
+message RefreshAccessTokenRequest {
+  string refresh_token = 1;
+  string consent_id = 2;
+}
+
+message RevokeAccessTokenRequest {
+  string token = 1;
+  string reason = 2;
+  string revoked_by = 3;
+}
+
+message RevokeAccessTokenResponse {
+  bool success = 1;
+  string message = 2;
+  google.protobuf.Timestamp revoked_at = 3;
+}
+
+message ValidateAccessTokenRequest {
+  string token = 1;
+  repeated string required_scopes = 2;
+}
+
+message ValidateAccessTokenResponse {
+  bool valid = 1;
+  TokenStatus status = 2;
+  string message = 3;
+  TokenMetadata metadata = 4;
+}
+
+message AccessTokenResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  string token_type = 3;
+  int32 expires_in = 4;
+  repeated string scopes = 5;
+  google.protobuf.Timestamp created_at = 6;
+  google.protobuf.Timestamp expires_at = 7;
+  string consent_id = 8;
+}
+
+message TokenMetadata {
+  string token_id = 1;
+  string consent_id = 2;
+  string organization_id = 3;
+  string customer_id = 4;
+  repeated string scopes = 5;
+  TokenStatus status = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp expires_at = 8;
+  google.protobuf.Timestamp last_used_at = 9;
+  int32 usage_count = 10;
+  map<string, string> additional_metadata = 11;
+}
+
+message GetTokenMetadataRequest {
+  string token = 1;
+}
+
+message BatchGetAccessTokensRequest {
+  repeated string consent_ids = 1;
+  string organization_id = 2;
+}
+
+message BatchGetAccessTokensResponse {
+  map<string, AccessTokenResponse> tokens = 1;
+  repeated TokenError errors = 2;
+}
+
+message TokenError {
+  string consent_id = 1;
+  string error_code = 2;
+  string error_message = 3;
+}
+
+message TokenEvent {
+  string event_id = 1;
+  TokenEventType event_type = 2;
+  string token_id = 3;
+  string consent_id = 4;
+  google.protobuf.Timestamp timestamp = 5;
+  map<string, string> details = 6;
+}
+
+// Enums
+enum TokenStatus {
+  TOKEN_STATUS_UNKNOWN = 0;
+  TOKEN_STATUS_ACTIVE = 1;
+  TOKEN_STATUS_EXPIRED = 2;
+  TOKEN_STATUS_REVOKED = 3;
+  TOKEN_STATUS_INVALID = 4;
+}
+
+enum TokenEventType {
+  TOKEN_EVENT_UNKNOWN = 0;
+  TOKEN_EVENT_CREATED = 1;
+  TOKEN_EVENT_REFRESHED = 2;
+  TOKEN_EVENT_REVOKED = 3;
+  TOKEN_EVENT_EXPIRED = 4;
+  TOKEN_EVENT_VALIDATED = 5;
+  TOKEN_EVENT_FAILED = 6;
+}

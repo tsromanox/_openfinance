@@ -1,0 +1,92 @@
+# Example configuration for reactive implementation
+spring:
+  application:
+    name: openfinance-reactive-app
+    
+  r2dbc:
+    url: r2dbc:postgresql://localhost:5432/openfinance
+    username: ${DB_USER:openfinance}
+    password: ${DB_PASSWORD:password}
+    pool:
+      initial-size: 20
+      max-size: 200
+      max-idle-time: 30m
+      
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: reactive-consumer
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+openfinance:
+  rest-client:
+    base-url: https://api.openfinance.org.br
+    strategy: reactive
+    max-connections: 2000
+    connection-timeout: 10s
+    read-timeout: 30s
+    idle-timeout: 5m
+    
+    resilience:
+      circuit-breaker-enabled: true
+      failure-rate-threshold: 60.0
+      minimum-number-of-calls: 20
+      sliding-window-size: 100
+      wait-duration-in-open-state: 30s
+      
+      retry-enabled: true
+      max-retry-attempts: 3
+      retry-wait-duration: 2s
+      
+      rate-limiter-enabled: true
+      limit-for-period: 1000
+      limit-refresh-period: 1s
+      timeout-duration: 5s
+    
+    security:
+      oauth2-enabled: true
+      token-endpoint: https://auth.openfinance.org.br/token
+      client-id: ${OPENFINANCE_CLIENT_ID}
+      client-secret: ${OPENFINANCE_CLIENT_SECRET}
+      scope: accounts consents resources
+      token-cache-duration: 30m
+    
+    metrics:
+      enabled: true
+      prefix: openfinance_reactive_client
+      timing-enabled: true
+      error-metrics-enabled: true
+    
+    events:
+      enabled: true
+      source: database
+      polling-interval: 3s
+      batch-size: 200
+      buffer-size: 2000
+      retry-enabled: true
+      max-retry-attempts: 5
+      retry-delay: 15s
+      
+      database:
+        table-name: api_events
+        reactive: true
+        where-clause: processed = false AND retry_count < 5
+        order-by-clause: priority DESC, created_at ASC
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus,info
+  endpoint:
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+
+logging:
+  level:
+    br.com.openfinance.restclient: INFO
+    io.github.resilience4j: INFO
+    reactor.netty.http.client: WARN

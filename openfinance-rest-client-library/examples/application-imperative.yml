@@ -1,0 +1,116 @@
+# Example configuration for imperative implementation with Virtual Threads
+spring:
+  application:
+    name: openfinance-imperative-app
+    
+  datasource:
+    url: jdbc:postgresql://localhost:5432/openfinance
+    username: ${DB_USER:openfinance}
+    password: ${DB_PASSWORD:password}
+    hikari:
+      maximum-pool-size: 200
+      minimum-idle: 20
+      connection-timeout: 20000
+      idle-timeout: 300000
+      max-lifetime: 1800000
+      
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: imperative-consumer
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      max-poll-records: 500
+
+openfinance:
+  rest-client:
+    base-url: https://api.openfinance.org.br
+    strategy: imperative
+    max-connections: 5000
+    max-connections-per-route: 1000
+    connection-timeout: 8s
+    read-timeout: 25s
+    idle-timeout: 3m
+    keep-alive-timeout: 10m
+    
+    virtual-threads:
+      enabled: true
+      max-virtual-threads: 50000
+      thread-name-prefix: openfinance-vt-
+      structured-concurrency: true
+    
+    resilience:
+      circuit-breaker-enabled: true
+      failure-rate-threshold: 50.0
+      minimum-number-of-calls: 15
+      sliding-window-size: 200
+      wait-duration-in-open-state: 45s
+      
+      retry-enabled: true
+      max-retry-attempts: 4
+      retry-wait-duration: 1s
+      
+      rate-limiter-enabled: true
+      limit-for-period: 5000
+      limit-refresh-period: 1s
+      timeout-duration: 3s
+      
+      bulkhead-enabled: true
+      max-concurrent-calls: 3000
+      max-wait-duration: 10s
+    
+    security:
+      oauth2-enabled: true
+      token-endpoint: https://auth.openfinance.org.br/token
+      client-id: ${OPENFINANCE_CLIENT_ID}
+      client-secret: ${OPENFINANCE_CLIENT_SECRET}
+      scope: accounts consents resources
+      token-cache-duration: 45m
+    
+    metrics:
+      enabled: true
+      prefix: openfinance_imperative_client
+      timing-enabled: true
+      size-metrics-enabled: true
+      error-metrics-enabled: true
+    
+    events:
+      enabled: true
+      source: kafka
+      batch-size: 500
+      buffer-size: 5000
+      retry-enabled: true
+      max-retry-attempts: 3
+      retry-delay: 10s
+      
+      kafka:
+        topic: openfinance-api-events
+        group-id: imperative-consumer-group
+        bootstrap-servers: localhost:9092
+        auto-offset-reset: earliest
+        enable-auto-commit: false
+        session-timeout: 45s
+        poll-timeout: 2s
+        reactive: false
+        additional-properties:
+          fetch.min.bytes: 100000
+          fetch.max.wait.ms: 1000
+          max.poll.records: 500
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus,info,threaddump
+  endpoint:
+    health:
+      show-details: always
+    metrics:
+      enabled: true
+
+logging:
+  level:
+    br.com.openfinance.restclient: INFO
+    io.github.resilience4j: INFO
+    org.apache.http: WARN
+    org.springframework.kafka: WARN

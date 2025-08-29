@@ -1,0 +1,47 @@
+package {{package}};
+
+{{#imports}}import {{import}};
+{{/imports}}
+
+import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
+import java.util.concurrent.CompletableFuture;
+
+{{#operations}}
+/**
+ * {{classname}} - Generated API Interface
+ * {{description}}
+ */
+public interface {{classname}} {
+
+    {{#operation}}
+    /**
+     * {{summary}}
+     * {{notes}}
+     {{#allParams}}
+     * @param {{paramName}} {{description}}
+     {{/allParams}}
+     * @return {{#returnType}}{{{returnType}}}{{/returnType}}
+     */
+    // Reactive version
+    {{#returnContainer}}
+    Flux<{{#returnType}}{{{returnType}}}{{/returnType}}> {{operationId}}Reactive(
+    {{/returnContainer}}
+    {{^returnContainer}}
+    Mono<{{#returnType}}{{{returnType}}}{{/returnType}}> {{operationId}}Reactive(
+    {{/returnContainer}}
+        {{#allParams}}{{dataType}} {{paramName}}{{^-last}}, {{/-last}}{{/allParams}}
+    );
+
+    // Imperative version with Virtual Threads
+    CompletableFuture<{{#returnType}}{{{returnType}}}{{/returnType}}> {{operationId}}Async(
+        {{#allParams}}{{dataType}} {{paramName}}{{^-last}}, {{/-last}}{{/allParams}}
+    );
+
+    // Blocking version
+    {{#returnType}}{{{returnType}}}{{/returnType}} {{operationId}}(
+        {{#allParams}}{{dataType}} {{paramName}}{{^-last}}, {{/-last}}{{/allParams}}
+    );
+    {{/operation}}
+}
+{{/operations}}
