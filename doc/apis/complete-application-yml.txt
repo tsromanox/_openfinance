@@ -1,0 +1,738 @@
+# ============================================
+# Open Finance Brasil - Consents API
+# Spring Boot 3.5.6 + Java 21 Virtual Threads
+# ============================================
+
+spring:
+  application:
+    name: open-finance-consents-api
+  
+  profiles:
+    active: ${SPRING_PROFILE:prod}
+  
+  # ============================================
+  # Virtual Threads Configuration (Java 21)
+  # ============================================
+  threads:
+    virtual:
+      enabled: true  # Ativa Virtual Threads (chave para alta concorrência)
+  
+  main:
+    keep-alive: true  # Previne JVM shutdown prematuro
+    banner-mode: log
+  
+  # ============================================
+  # MongoDB Configuration
+  # ============================================
+  data:
+    mongodb:
+      # Replica Set com 3 membros para alta disponibilidade
+      uri: mongodb://${MONGO_USER:mongouser}:${MONGO_PASSWORD:secret}@mongo1:27017,mongo2:27017,mongo3:27017/${MONGO_DATABASE:consents}?replicaSet=rs0&retryWrites=true&w=majority&readPreference=secondaryPreferred&maxPoolSize=200&minPoolSize=50&maxIdleTimeMS=60000&maxLifeTimeMS=300000&waitQueueTimeoutMS=15000&serverSelectionTimeoutMS=30000&connectTimeoutMS=10000&socketTimeoutMS=30000
+      
+      database: ${MONGO_DATABASE:consents}
+      auto-index-creation: false  # Criar índices manualmente em produção
+      uuid-representation: standard
+      
+      # Configurações de field naming
+      field-naming-strategy: org.springframework.data.mapping.model.SnakeCaseFieldNamingStrategy
+  
+  # ============================================
+  # Cache Configuration (Hazelcast)
+  # ============================================
+  cache:
+    type: hazelcast
+    cache-names:
+      - consents
+      - consents-by-customer
+      - consent-permissions
+  
+  # ============================================
+  # Jackson Configuration
+  # ============================================
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+      indent-output: false
+    deserialization:
+      fail-on-unknown-properties: false
+    default-property-inclusion: non_null
+    time-zone: America/Sao_Paulo
+
+# ============================================
+# Server Configuration (Tomcat + Virtual Threads)
+# ============================================
+server:
+  port: ${SERVER_PORT:8080}
+  
+  tomcat:
+    threads:
+      max: 10000  # Virtual Threads suportam alto número
+      min-spare: 50
+    connection-timeout: 20s
+    max-connections: 10000
+    accept-count: 1000
+    mbeanregistry:
+      enabled: true  # JMX monitoring
+  
+  shutdown: graceful
+  
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+    min-response-size: 1024
+  
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: on_param
+    include-exception: false
+
+# ============================================
+# Hazelcast Distributed Cache
+# ============================================
+hazelcast:
+  cluster-name: ${HAZELCAST_CLUSTER:consent-api-cluster}
+  
+  network:
+    port:
+      auto-increment: true
+      port: ${HAZELCAST_PORT:5701}
+    join:
+      multicast:
+        enabled: ${HAZELCAST_MULTICAST:true}
+      tcp-ip:
+        enabled: false
+  
+  map:
+    # Cache principal de consentimentos
+    consents:
+      time-to-live-seconds: 600  # 10 minutos
+      max-idle-seconds: 300
+      eviction:
+        eviction-policy: LRU
+        max-size-policy: PER_NODE
+        size: 10000
+      backup-count: 1
+      async-backup-count: 1
+      statistics-enabled: true
+      in-memory-format: BINARY
+    
+    # Cache de consentimentos por cliente
+    consents-by-customer:
+      time-to-live-seconds: 300  # 5 minutos
+      max-idle-seconds: 180
+      eviction:
+        eviction-policy: LRU
+        max-size-policy: PER_NODE
+        size: 5000
+      backup-count: 1
+      statistics-enabled: true
+    
+    # Cache de permissões
+    consent-permissions:
+      time-to-live-seconds: 1800  # 30 minutos
+      max-idle-seconds: 900
+      eviction:
+        eviction-policy: LFU
+        max-size-policy: PER_NODE
+        size: 1000
+      backup-count: 1
+
+# ============================================
+# Resilience4j Configuration
+# ============================================
+resilience4j:
+  # Rate Limiter (Open Finance Brasil)
+  ratelimiter:
+    instances:
+      # API principal (2500 TPM = 41.6 TPS)
+      consentApiLimiter:
+        limitForPeriod: 2500
+        limitRefreshPeriod: 1m
+        timeoutDuration: 100ms
+        registerHealthIndicator: true
+        eventConsumerBufferSize: 100
+      
+      # MongoDB operations
+      mongodbLimiter:
+        limitForPeriod: 1000
+        limitRefreshPeriod: 1m
+        timeoutDuration: 500ms
+      
+      # External API calls
+      externalApiLimiter:
+        limitForPeriod: 500
+        limitRefreshPeriod: 1m
+        timeoutDuration: 200ms
+  
+  # Retry Configuration
+  retry:
+    instances:
+      # Retry para MongoDB
+      mongoRetry:
+        maxAttempts: 3
+        waitDuration: 500ms
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        exponentialMaxWaitDuration: 5s
+        retryExceptions:
+          - com.mongodb.MongoException
+          - com.mongodb.MongoTimeoutException
+          - java.io.IOException
+        ignoreExceptions:
+          - java.lang.IllegalArgumentException
+          - com.bank.consent.domain.exception.ConsentValidationException
+      
+      # Retry para APIs externas
+      externalServiceRetry:
+        maxAttempts: 3
+        waitDuration: 1s
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - java.net.SocketTimeoutException
+          - java.io.IOException
+  
+  # Circuit Breaker Configuration
+  circuitbreaker:
+    instances:
+      # Circuit breaker para MongoDB
+      mongoCircuitBreaker:
+        slidingWindowSize: 100
+        slidingWindowType: COUNT_BASED
+        failureRateThreshold: 50
+        slowCallRateThreshold: 50
+        slowCallDurationThreshold: 2s
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 10
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        registerHealthIndicator: true
+      
+      # Circuit breaker para APIs externas
+      externalApiCircuitBreaker:
+        slidingWindowSize: 50
+        failureRateThreshold: 40
+        waitDurationInOpenState: 30s
+        permittedNumberOfCallsInHalfOpenState: 5
+
+# ============================================
+# Management & Actuator
+# ============================================
+management:
+  server:
+    port: ${MANAGEMENT_PORT:8081}  # Porta separada
+  
+  endpoints:
+    web:
+      base-path: /actuator
+      exposure:
+        include: health,info,metrics,prometheus,hazelcast,caches,threaddump,heapdump
+  
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true  # Kubernetes liveness/readiness
+      group:
+        readiness:
+          include: db,hazelcast,diskSpace
+        liveness:
+          include: ping
+    
+    prometheus:
+      enabled: true
+    
+    metrics:
+      enabled: true
+  
+  # Métricas e Observabilidade
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+        step: 1m
+        descriptions: true
+    
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        consent.processing.time: true
+        mongodb.query.time: true
+      
+      percentiles:
+        http.server.requests: 0.5,0.75,0.95,0.99
+        consent.processing.time: 0.5,0.95,0.99
+      
+      slo:
+        http.server.requests: 10ms,50ms,100ms,200ms,500ms,1s,2s
+    
+    tags:
+      application: ${spring.application.name}
+      environment: ${ENVIRONMENT:production}
+      region: ${AWS_REGION:us-east-1}
+      version: ${APP_VERSION:1.0.0}
+  
+  # Tracing (OpenTelemetry)
+  tracing:
+    enabled: true
+    sampling:
+      probability: 1.0  # 100% em produção (ajustar se necessário)
+  
+  # Health indicators
+  health:
+    mongo:
+      enabled: true
+    diskspace:
+      enabled: true
+      threshold: 10GB
+
+# ============================================
+# SpringDoc OpenAPI Configuration
+# ============================================
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: ${SWAGGER_ENABLED:false}  # Desabilitar em produção
+    operationsSorter: method
+    display-request-duration: true
+    show-extensions: true
+    show-common-extensions: true
+  
+  show-actuator: false
+
+# ============================================
+# Logging Configuration
+# ============================================
+logging:
+  level:
+    root: INFO
+    com.bank.consent: DEBUG
+    org.springframework.web: INFO
+    org.springframework.data.mongodb: INFO
+    com.mongodb.driver: WARN
+    com.hazelcast: WARN
+    io.github.resilience4j: DEBUG
+    co.elastic.apm: INFO
+  
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  
+  file:
+    name: logs/consent-api.log
+    max-size: 100MB
+    max-history: 30
+    total-size-cap: 3GB
+
+# ============================================
+# Elastic APM Configuration
+# ============================================
+elastic:
+  apm:
+    enabled: ${ELASTIC_APM_ENABLED:true}
+    server-url: ${ELASTIC_APM_SERVER_URL:http://apm-server:8200}
+    service-name: ${spring.application.name}
+    service-version: ${APP_VERSION:1.0.0}
+    environment: ${ENVIRONMENT:production}
+    application-packages: com.bank.consent
+    
+    # Sampling
+    transaction-sample-rate: ${ELASTIC_APM_SAMPLE_RATE:1.0}
+    
+    # Capture settings
+    capture-body: ${ELASTIC_APM_CAPTURE_BODY:all}
+    capture-headers: true
+    
+    # Sanitização de dados sensíveis
+    sanitize-field-names: password,token,secret,authorization,cpf,cnpj,credit-card
+    
+    # Performance profiling
+    profiling-inferred-spans-enabled: true
+    profiling-inferred-spans-sampling-interval: 50ms
+    profiling-inferred-spans-min-duration: 500ms
+    
+    # Transaction configuration
+    transaction-max-spans: 500
+    span-min-duration: 5ms
+
+# ============================================
+# Open Finance Brasil Specific Configuration
+# ============================================
+openfinance:
+  # API metadata
+  api:
+    version: "2.2.0"
+    organization-id: ${ORGANIZATION_ID:00000000-0000-0000-0000-000000000000}
+    
+  # Rate limiting (TPM - Transactions Per Minute)
+  rate-limit:
+    base-tpm: 2500  # Mínimo Open Finance
+    scale-threshold: 0.9  # 90% capacidade
+    scale-increment: 150  # +150 TPM por demanda
+  
+  # FAPI Security
+  fapi:
+    validate-headers: true
+    required-headers:
+      - x-fapi-interaction-id
+      - x-fapi-customer-ip-address
+    
+  # Timeouts
+  timeouts:
+    api-timeout: 1000ms  # Max 1 segundo (Open Finance requirement)
+    database-timeout: 500ms
+    cache-timeout: 100ms
+
+# ============================================
+# Custom Application Properties
+# ============================================
+app:
+  name: ${spring.application.name}
+  version: ${APP_VERSION:1.0.0}
+  description: "Open Finance Brasil Consents API"
+  
+  # Feature flags
+  features:
+    virtual-threads: true
+    distributed-cache: true
+    rate-limiting: true
+    retry-enabled: true
+    circuit-breaker: true
+    elastic-apm: true
+  
+  # Maintenance mode
+  maintenance:
+    enabled: false
+    message: "API em manutenção. Retorne em breve."
+
+---
+# ============================================
+# Profile: Development
+# ============================================
+spring:
+  config:
+    activate:
+      on-profile: dev
+  
+  # MongoDB local
+  data:
+    mongodb:
+      uri: mongodb://mongouser:secret@localhost:27017/consents?retryWrites=true&w=1
+      auto-index-creation: true  # OK em dev
+  
+  # Cache local (sem cluster)
+  cache:
+    type: simple  # Em memória simples
+
+# Hazelcast dev (standalone)
+hazelcast:
+  network:
+    join:
+      multicast:
+        enabled: false
+      tcp-ip:
+        enabled: false
+
+# Server dev
+server:
+  port: 8080
+  error:
+    include-stacktrace: always
+
+# Logging dev (mais verbose)
+logging:
+  level:
+    root: DEBUG
+    com.bank.consent: TRACE
+    org.springframework.web: DEBUG
+    org.springframework.data.mongodb: DEBUG
+    com.mongodb.driver: DEBUG
+
+# Swagger habilitado em dev
+springdoc:
+  swagger-ui:
+    enabled: true
+
+# Elastic APM desabilitado em dev
+elastic:
+  apm:
+    enabled: false
+
+# Rate limiting relaxado em dev
+resilience4j:
+  ratelimiter:
+    instances:
+      consentApiLimiter:
+        limitForPeriod: 10000  # Sem limite em dev
+        timeoutDuration: 1s
+
+---
+# ============================================
+# Profile: Test (Integração)
+# ============================================
+spring:
+  config:
+    activate:
+      on-profile: test
+  
+  # MongoDB Testcontainers
+  data:
+    mongodb:
+      uri: mongodb://localhost:27017/consents-test
+      auto-index-creation: true
+  
+  # Cache em memória (sem Hazelcast)
+  cache:
+    type: simple
+
+# Desabilitar recursos externos em teste
+elastic:
+  apm:
+    enabled: false
+
+hazelcast:
+  network:
+    join:
+      multicast:
+        enabled: false
+
+# Logging mínimo em testes
+logging:
+  level:
+    root: WARN
+    com.bank.consent: INFO
+    org.springframework.test: INFO
+
+# Desabilitar rate limiting em testes
+resilience4j:
+  ratelimiter:
+    instances:
+      consentApiLimiter:
+        limitForPeriod: 999999
+
+---
+# ============================================
+# Profile: Staging
+# ============================================
+spring:
+  config:
+    activate:
+      on-profile: staging
+  
+  # MongoDB staging
+  data:
+    mongodb:
+      uri: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo-staging:27017/${MONGO_DATABASE}?replicaSet=rs0&retryWrites=true&w=majority&readPreference=secondaryPreferred
+
+# Hazelcast cluster staging
+hazelcast:
+  cluster-name: consent-api-staging-cluster
+  network:
+    join:
+      multicast:
+        enabled: true
+
+# Elastic APM staging
+elastic:
+  apm:
+    enabled: true
+    environment: staging
+    transaction-sample-rate: 0.5  # 50% sampling em staging
+
+# Rate limiting staging (mais relaxado)
+resilience4j:
+  ratelimiter:
+    instances:
+      consentApiLimiter:
+        limitForPeriod: 5000  # 2x produção
+
+# Logging staging
+logging:
+  level:
+    root: INFO
+    com.bank.consent: DEBUG
+
+# Swagger habilitado em staging
+springdoc:
+  swagger-ui:
+    enabled: true
+
+---
+# ============================================
+# Profile: Production
+# ============================================
+spring:
+  config:
+    activate:
+      on-profile: prod
+  
+  # MongoDB production (já configurado no profile padrão)
+  data:
+    mongodb:
+      auto-index-creation: false  # NUNCA em produção
+
+# Hazelcast production
+hazelcast:
+  cluster-name: consent-api-prod-cluster
+  network:
+    join:
+      multicast:
+        enabled: false
+      tcp-ip:
+        enabled: true
+        member-list:
+          - hazelcast-node1
+          - hazelcast-node2
+          - hazelcast-node3
+
+# Elastic APM production
+elastic:
+  apm:
+    enabled: true
+    environment: production
+    transaction-sample-rate: 1.0  # 100% em produção
+    capture-body: errors  # Apenas em erros por segurança
+
+# Rate limiting production (Open Finance)
+resilience4j:
+  ratelimiter:
+    instances:
+      consentApiLimiter:
+        limitForPeriod: 2500  # TPM Open Finance
+
+# Logging production (otimizado)
+logging:
+  level:
+    root: WARN
+    com.bank.consent: INFO
+    org.springframework.web: WARN
+    org.springframework.data.mongodb: WARN
+
+# Swagger DESABILITADO em produção
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false
+
+# Security headers production
+server:
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+
+---
+# ============================================
+# Profile: Reactive (WebFlux)
+# ============================================
+spring:
+  config:
+    activate:
+      on-profile: reactive
+  
+  # MongoDB Reactive
+  data:
+    mongodb-reactive:
+      uri: mongodb://${MONGO_USER:mongouser}:${MONGO_PASSWORD:secret}@mongo1:27017,mongo2:27017,mongo3:27017/${MONGO_DATABASE:consents}?replicaSet=rs0
+  
+  # WebFlux settings
+  webflux:
+    base-path: /
+    
+  # Desabilitar MVC
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration
+
+# Netty server (WebFlux)
+server:
+  port: 8080
+  netty:
+    connection-timeout: 20s
+    idle-timeout: 60s
+
+# Logging reactive
+logging:
+  level:
+    reactor.netty: DEBUG
+    org.springframework.web.reactive: DEBUG
+
+---
+# ============================================
+# Profile: Docker
+# ============================================
+spring:
+  config:
+    activate:
+      on-profile: docker
+  
+  # MongoDB Docker Compose
+  data:
+    mongodb:
+      uri: mongodb://mongouser:secret@mongodb:27017/consents?retryWrites=true&w=majority
+  
+  # Hazelcast Docker
+hazelcast:
+  network:
+    join:
+      multicast:
+        enabled: true
+    interfaces:
+      enabled: true
+      interfaces:
+        - 172.*
+
+# Elastic APM Docker
+elastic:
+  apm:
+    server-url: http://apm-server:8200
+
+---
+# ============================================
+# Profile: Kubernetes
+# ============================================
+spring:
+  config:
+    activate:
+      on-profile: kubernetes
+  
+  # MongoDB via Service Discovery
+  data:
+    mongodb:
+      uri: mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongodb-service:27017/${MONGO_DATABASE}?replicaSet=rs0&retryWrites=true&w=majority
+
+# Hazelcast Kubernetes Discovery
+hazelcast:
+  network:
+    join:
+      multicast:
+        enabled: false
+      kubernetes:
+        enabled: true
+        namespace: ${KUBERNETES_NAMESPACE:default}
+        service-name: consent-api-hazelcast
+
+# Actuator para Kubernetes probes
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true
+
+# Graceful shutdown para rolling updates
+server:
+  shutdown: graceful
+spring:
+  lifecycle:
+    timeout-per-shutdown-phase: 30s

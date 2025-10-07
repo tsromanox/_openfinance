@@ -1,0 +1,538 @@
+openapi: 3.0.3
+info:
+  title: Open Finance Brasil - Consents API
+  description: API de Consentimentos do Open Finance Brasil com alta disponibilidade
+  version: 3.0.0
+  contact:
+    name: Open Finance Brasil
+    url: https://openfinancebrasil.org.br
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: https://api.openfinance.com.br
+    description: Production server
+  - url: http://localhost:8080
+    description: Local development
+
+security:
+  - OAuth2:
+      - consents:read
+  - ApiKey: []
+
+tags:
+  - name: Consents
+    description: Operações de consentimento
+
+paths:
+  /open-banking/consents/v3/consents:
+    get:
+      tags:
+        - Consents
+      summary: Obter lista de consentimentos
+      description: Método para obter a lista de consentimentos do cliente
+      operationId: getConsents
+      parameters:
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/xFapiAuthDate'
+        - $ref: '#/components/parameters/xFapiCustomerIpAddress'
+        - $ref: '#/components/parameters/xFapiInteractionId'
+        - $ref: '#/components/parameters/xCustomerUserAgent'
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/pageSize'
+        - name: status
+          in: query
+          description: Filtrar por status do consentimento
+          schema:
+            type: string
+            enum:
+              - AWAITING_AUTHORISATION
+              - AUTHORISED
+              - REJECTED
+              - CONSUMED
+        - name: fromCreationDate
+          in: query
+          description: Data inicial de criação
+          schema:
+            type: string
+            format: date-time
+        - name: toCreationDate
+          in: query
+          description: Data final de criação
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Lista de consentimentos obtida com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseConsents'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /open-banking/consents/v3/consents/{consentId}:
+    get:
+      tags:
+        - Consents
+      summary: Obter consentimento por ID
+      description: Método para obter detalhes de um consentimento específico
+      operationId: getConsentById
+      parameters:
+        - $ref: '#/components/parameters/consentId'
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/xFapiAuthDate'
+        - $ref: '#/components/parameters/xFapiCustomerIpAddress'
+        - $ref: '#/components/parameters/xFapiInteractionId'
+        - $ref: '#/components/parameters/xCustomerUserAgent'
+      responses:
+        '200':
+          description: Consentimento obtido com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseConsent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /open-banking/consents/v3/consents/{consentId}/resources:
+    get:
+      tags:
+        - Consents
+      summary: Obter recursos do consentimento
+      description: Método para obter recursos vinculados a um consentimento
+      operationId: getConsentResources
+      parameters:
+        - $ref: '#/components/parameters/consentId'
+        - $ref: '#/components/parameters/Authorization'
+        - $ref: '#/components/parameters/xFapiAuthDate'
+        - $ref: '#/components/parameters/xFapiCustomerIpAddress'
+        - $ref: '#/components/parameters/xFapiInteractionId'
+        - $ref: '#/components/parameters/xCustomerUserAgent'
+      responses:
+        '200':
+          description: Recursos obtidos com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseConsentResources'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    OAuth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://auth.openfinance.com.br/token
+          scopes:
+            consents:read: Leitura de consentimentos
+    ApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+  parameters:
+    consentId:
+      name: consentId
+      in: path
+      description: ID do consentimento
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-zA-Z0-9][a-zA-Z0-9-]{0,99}$'
+        maxLength: 100
+
+    Authorization:
+      name: Authorization
+      in: header
+      description: Token OAuth2 Bearer
+      required: true
+      schema:
+        type: string
+        pattern: '^Bearer .+$'
+
+    xFapiAuthDate:
+      name: x-fapi-auth-date
+      in: header
+      description: Data/hora da autenticação do usuário
+      required: false
+      schema:
+        type: string
+
+    xFapiCustomerIpAddress:
+      name: x-fapi-customer-ip-address
+      in: header
+      description: Endereço IP do cliente
+      required: false
+      schema:
+        type: string
+        pattern: '^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$'
+
+    xFapiInteractionId:
+      name: x-fapi-interaction-id
+      in: header
+      description: UUID único para rastreabilidade
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+    xCustomerUserAgent:
+      name: x-customer-user-agent
+      in: header
+      description: User Agent do cliente
+      required: false
+      schema:
+        type: string
+
+    page:
+      name: page
+      in: query
+      description: Número da página (paginação)
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+
+    pageSize:
+      name: page-size
+      in: query
+      description: Quantidade de registros por página
+      schema:
+        type: integer
+        default: 25
+        minimum: 1
+        maximum: 100
+
+  schemas:
+    ResponseConsents:
+      type: object
+      required:
+        - data
+        - links
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Consent'
+        links:
+          $ref: '#/components/schemas/Links'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    ResponseConsent:
+      type: object
+      required:
+        - data
+        - links
+        - meta
+      properties:
+        data:
+          $ref: '#/components/schemas/Consent'
+        links:
+          $ref: '#/components/schemas/Links'
+        meta:
+          $ref: '#/components/schemas/MetaSingle'
+
+    ResponseConsentResources:
+      type: object
+      required:
+        - data
+        - links
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConsentResource'
+        links:
+          $ref: '#/components/schemas/Links'
+        meta:
+          $ref: '#/components/schemas/Meta'
+
+    Consent:
+      type: object
+      required:
+        - consentId
+        - creationDateTime
+        - status
+        - statusUpdateDateTime
+        - permissions
+        - expirationDateTime
+        - transactionFromDateTime
+        - transactionToDateTime
+      properties:
+        consentId:
+          type: string
+          description: ID único do consentimento
+          maxLength: 256
+        creationDateTime:
+          type: string
+          format: date-time
+          description: Data e hora de criação do consentimento
+        status:
+          type: string
+          description: Estado atual do consentimento
+          enum:
+            - AWAITING_AUTHORISATION
+            - AUTHORISED
+            - REJECTED
+            - CONSUMED
+        statusUpdateDateTime:
+          type: string
+          format: date-time
+          description: Data e hora da última atualização do status
+        permissions:
+          type: array
+          description: Permissões concedidas
+          items:
+            type: string
+            enum:
+              - ACCOUNTS_READ
+              - ACCOUNTS_BALANCES_READ
+              - ACCOUNTS_TRANSACTIONS_READ
+              - ACCOUNTS_OVERDRAFT_LIMITS_READ
+              - CREDIT_CARDS_ACCOUNTS_READ
+              - CREDIT_CARDS_ACCOUNTS_BILLS_READ
+              - CREDIT_CARDS_ACCOUNTS_BILLS_TRANSACTIONS_READ
+              - CREDIT_CARDS_ACCOUNTS_LIMITS_READ
+              - CREDIT_CARDS_ACCOUNTS_TRANSACTIONS_READ
+        expirationDateTime:
+          type: string
+          format: date-time
+          description: Data de expiração do consentimento
+        transactionFromDateTime:
+          type: string
+          format: date-time
+          description: Data inicial para consulta de transações
+        transactionToDateTime:
+          type: string
+          format: date-time
+          description: Data final para consulta de transações
+        rejectionReason:
+          $ref: '#/components/schemas/RejectionReason'
+        businessEntity:
+          $ref: '#/components/schemas/BusinessEntity'
+        loggedUser:
+          $ref: '#/components/schemas/LoggedUser'
+
+    ConsentResource:
+      type: object
+      required:
+        - resourceId
+        - type
+        - status
+      properties:
+        resourceId:
+          type: string
+          description: ID do recurso
+        type:
+          type: string
+          description: Tipo do recurso
+          enum:
+            - ACCOUNT
+            - CREDIT_CARD_ACCOUNT
+            - LOAN
+            - FINANCING
+            - INVOICE_FINANCING
+            - OVERDRAFT
+            - INVESTMENT
+        status:
+          type: string
+          description: Status do recurso
+          enum:
+            - AVAILABLE
+            - UNAVAILABLE
+            - PENDING_AUTHORISATION
+        statusUpdateDateTime:
+          type: string
+          format: date-time
+
+    RejectionReason:
+      type: object
+      properties:
+        code:
+          type: string
+          enum:
+            - CUSTOMER_MANUALLY_REJECTED
+            - CONSENT_EXPIRED
+            - CONSENT_MAXIMAL_EXPIRATION_EXCEEDED
+            - CONSENT_REVOKED
+        detail:
+          type: string
+          maxLength: 2048
+
+    BusinessEntity:
+      type: object
+      properties:
+        document:
+          type: object
+          properties:
+            identification:
+              type: string
+              pattern: '^\d{14}
+            rel:
+              type: string
+
+    LoggedUser:
+      type: object
+      properties:
+        document:
+          type: object
+          properties:
+            identification:
+              type: string
+              pattern: '^\d{11}
+            rel:
+              type: string
+
+    Links:
+      type: object
+      properties:
+        self:
+          type: string
+          format: uri
+        first:
+          type: string
+          format: uri
+        prev:
+          type: string
+          format: uri
+        next:
+          type: string
+          format: uri
+        last:
+          type: string
+          format: uri
+
+    Meta:
+      type: object
+      required:
+        - totalRecords
+        - totalPages
+      properties:
+        totalRecords:
+          type: integer
+          description: Total de registros
+        totalPages:
+          type: integer
+          description: Total de páginas
+        requestDateTime:
+          type: string
+          format: date-time
+
+    MetaSingle:
+      type: object
+      required:
+        - requestDateTime
+      properties:
+        requestDateTime:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      required:
+        - errors
+      properties:
+        errors:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+              - code
+              - title
+              - detail
+            properties:
+              code:
+                type: string
+              title:
+                type: string
+              detail:
+                type: string
+        meta:
+          $ref: '#/components/schemas/MetaSingle'
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    TooManyRequests:
+      description: Too Many Requests
+      headers:
+        Retry-After:
+          description: Tempo em segundos até próxima tentativa
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
