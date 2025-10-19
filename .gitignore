@@ -60,6 +60,7 @@ out/
 # VS Code
 .vscode/
 *.code-workspace
+.DS_Store
 
 # Eclipse
 .apt_generated
