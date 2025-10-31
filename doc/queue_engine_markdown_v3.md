@@ -683,6 +683,7 @@ import io.lettuce.core.codec.RedisCodec;
 **Erro: UnsupportedOperationException em proxyManager.builder()**
 - Certifique-se de usar o builder correto: `Bucket4jJCache.entryProcessorBasedBuilder()` ou `Bucket4jLettuce.casBasedBuilder()`
 
+```java
 @Service
 public class InstitutionRateLimiter {
     private final ProxyManager<String> proxyManager;
