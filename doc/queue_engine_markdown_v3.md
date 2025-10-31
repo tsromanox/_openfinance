@@ -565,13 +565,13 @@ public class InstitutionDashboardController {
     }
 }
 ```
-```
 
 ### ALTERNATIVA 2: LettuceBasedProxyManager (Mais performática)
 
 Usa Lettuce diretamente sem camada JCache. Melhor performance, mas menos abstração.
 
 **Dependências Maven:**
+
 ```xml
 <!-- Bucket4j Redis -->
 <dependency>
